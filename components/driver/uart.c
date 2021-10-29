@@ -1383,6 +1383,10 @@ esp_err_t uart_driver_install(uart_port_t uart_num, int rx_buffer_size, int tx_b
 
         if(uart_queue) {
             p_uart_obj[uart_num]->xQueueUart = xQueueCreate(queue_size, sizeof(uart_event_t));
+            if (!p_uart_obj[uart_num]->xQueueUart) {
+                r = ESP_ERR_NO_MEM;
+                goto err;
+            }
             *uart_queue = p_uart_obj[uart_num]->xQueueUart;
             ESP_LOGI(UART_TAG, "queue free spaces: %d", uxQueueSpacesAvailable(p_uart_obj[uart_num]->xQueueUart));
         } else {
@@ -1394,8 +1398,16 @@ esp_err_t uart_driver_install(uart_port_t uart_num, int rx_buffer_size, int tx_b
         p_uart_obj[uart_num]->rx_cur_remain = 0;
         p_uart_obj[uart_num]->rx_head_ptr = NULL;
         p_uart_obj[uart_num]->rx_ring_buf = xRingbufferCreate(rx_buffer_size, RINGBUF_TYPE_BYTEBUF);
+        if (!p_uart_obj[uart_num]->rx_ring_buf) {
+            r = ESP_ERR_NO_MEM;
+            goto err;
+        }
         if(tx_buffer_size > 0) {
             p_uart_obj[uart_num]->tx_ring_buf = xRingbufferCreate(tx_buffer_size, RINGBUF_TYPE_NOSPLIT);
+            if (!p_uart_obj[uart_num]->tx_ring_buf) {
+                r = ESP_ERR_NO_MEM;
+                goto err;
+            }
             p_uart_obj[uart_num]->tx_buf_size = tx_buffer_size;
         } else {
             p_uart_obj[uart_num]->tx_ring_buf = NULL;

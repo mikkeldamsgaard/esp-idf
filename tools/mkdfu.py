@@ -41,7 +41,7 @@ except ImportError:
     pass
 
 try:
-    from itertools import izip as zip
+    from itertools import izip as zip  # type: ignore
 except ImportError:
     # Python 3
     pass
@@ -216,7 +216,7 @@ def action_write(args):  # type: (typing.Mapping[str, typing.Any]) -> None
         print('WARNING: Partition size of DFU is not multiple of 4k (4096). You might get unexpected behavior.')
 
 
-def main():
+def main():  # type: () -> None
     parser = argparse.ArgumentParser()
 
     # Provision to add "info" command
@@ -242,7 +242,7 @@ def main():
 
     args = parser.parse_args()
 
-    def check_file(file_name):
+    def check_file(file_name):  # type: (str) -> str
         if not os.path.isfile(file_name):
             raise RuntimeError('{} is not a regular file!'.format(file_name))
         return file_name
@@ -254,7 +254,7 @@ def main():
     if args.json:
         json_dir = os.path.dirname(os.path.abspath(args.json))
 
-        def process_json_file(path):
+        def process_json_file(path):  # type: (str) -> str
             '''
             The input path is relative to json_dir. This function makes it relative to the current working
             directory.

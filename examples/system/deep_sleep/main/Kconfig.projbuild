@@ -33,8 +33,8 @@ menu "Example Configuration"
         default y
         depends on IDF_TARGET_ESP32C3
         help
-            This option enables wake up from GPIO, only GPIO0~5 can be used to wake up. Be aware that if you use low
-            level to trigger wakeup, we strongly recommand you to connect external pull-up resistance.
+            This option enables wake up from GPIO, only GPIO0~5 can be used to wake up. Be aware that if you use low level
+            to trigger wakeup, we strongly recommand you to connect external pull-up resistance.
 
     menu "GPIO wakeup configuration"
         visible if IDF_TARGET_ESP32C3

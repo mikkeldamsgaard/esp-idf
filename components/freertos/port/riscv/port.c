@@ -74,30 +74,34 @@
  * Implementation of functions defined in portable.h for the RISC-V port.
  *----------------------------------------------------------------------*/
 
-#include <string.h>
-#include "FreeRTOS.h"
-#include "task.h"
-#include "portmacro.h"
-
 #include "sdkconfig.h"
-
+#include <string.h>
 #include "soc/soc_caps.h"
 #include "soc/periph_defs.h"
 #include "soc/system_reg.h"
 #include "hal/systimer_hal.h"
 #include "hal/systimer_ll.h"
-
 #include "riscv/rvruntime-frames.h"
 #include "riscv/riscv_interrupts.h"
 #include "riscv/interrupt.h"
-
-#include "esp_system.h"
-#include "esp_intr_alloc.h"
 #include "esp_private/crosscore_int.h"
 #include "esp_attr.h"
+#include "esp_system.h"
+#include "esp_intr_alloc.h"
 #include "esp_debug_helpers.h"
 #include "esp_log.h"
-#include "esp_private/pm_trace.h"
+#include "FreeRTOS.h"       /* This pulls in portmacro.h */
+#include "task.h"
+#include "portmacro.h"
+#include "port_systick.h"
+
+
+
+/* ---------------------------------------------------- Variables ------------------------------------------------------
+ *
+ * ------------------------------------------------------------------------------------------------------------------ */
+
+static const char *TAG = "cpu_start"; // [refactor-todo]: might be appropriate to change in the future, but
 
 /**
  * @brief A variable is used to keep track of the critical section nesting.
@@ -113,55 +117,43 @@ BaseType_t xPortSwitchFlag = 0;
 __attribute__((aligned(16))) static StackType_t xIsrStack[configISR_STACK_SIZE];
 StackType_t *xIsrStackTop = &xIsrStack[0] + (configISR_STACK_SIZE & (~((portPOINTER_SIZE_TYPE)portBYTE_ALIGNMENT_MASK)));
 
-static const char *TAG = "cpu_start"; // [refactor-todo]: might be appropriate to change in the future, but
 
-static void vPortSysTickHandler(void *arg);
-static void vPortSetupTimer(void);
-static void prvTaskExitError(void);
+
+/* ------------------------------------------------ FreeRTOS Portable --------------------------------------------------
+ * - Provides implementation for functions required by FreeRTOS
+ * - Declared in portable.h
+ * ------------------------------------------------------------------------------------------------------------------ */
+
+// ----------------- Scheduler Start/End -------------------
 
 extern void esprv_intc_int_set_threshold(int); // FIXME, this function is in ROM only
-
-void vPortEnterCritical(void)
+BaseType_t xPortStartScheduler(void)
 {
-    BaseType_t state = portENTER_CRITICAL_NESTED();
-    uxCriticalNesting++;
+    uxInterruptNesting = 0;
+    uxCriticalNesting = 0;
+    uxSchedulerRunning = 0;
 
-    if (uxCriticalNesting == 1) {
-        uxSavedInterruptState = state;
-    }
+    /* Setup the hardware to generate the tick. */
+    vPortSetupTimer();
+
+    esprv_intc_int_set_threshold(1); /* set global INTC masking level */
+    riscv_global_interrupts_enable();
+
+    vPortYield();
+
+    /*Should not get here*/
+    return pdFALSE;
 }
 
-void vPortExitCritical(void)
+void vPortEndScheduler(void)
 {
-    if (uxCriticalNesting > 0) {
-        uxCriticalNesting--;
-        if (uxCriticalNesting == 0) {
-            portEXIT_CRITICAL_NESTED(uxSavedInterruptState);
-        }
-    }
+    /* very unlikely this function will be called, so just trap here */
+    abort();
 }
 
-/**
- * @brief Set up the systimer peripheral to generate the tick interrupt
- *
- */
-void vPortSetupTimer(void)
-{
-    /* set system timer interrupt vector */
-    esp_err_t err = esp_intr_alloc(ETS_SYSTIMER_TARGET0_EDGE_INTR_SOURCE, ESP_INTR_FLAG_IRAM, vPortSysTickHandler, NULL, NULL);
-    assert(err == ESP_OK);
+// ------------------------ Stack --------------------------
 
-    /* configure the timer */
-    systimer_hal_init();
-    systimer_hal_connect_alarm_counter(SYSTIMER_ALARM_0, SYSTIMER_COUNTER_1);
-    systimer_hal_enable_counter(SYSTIMER_COUNTER_1);
-    systimer_hal_counter_can_stall_by_cpu(SYSTIMER_COUNTER_1, 0, true);
-    systimer_hal_set_alarm_period(SYSTIMER_ALARM_0, 1000000UL / CONFIG_FREERTOS_HZ);
-    systimer_hal_select_alarm_mode(SYSTIMER_ALARM_0, SYSTIMER_ALARM_MODE_PERIOD);
-    systimer_hal_enable_alarm_int(SYSTIMER_ALARM_0);
-}
-
-void prvTaskExitError(void)
+static void prvTaskExitError(void)
 {
     /* A function that implements a task must not exit or attempt to return to
     its caller as there is nothing to return to.  If a task wants to exit it
@@ -223,12 +215,12 @@ int vPortSetInterruptMask(void)
 StackType_t *pxPortInitialiseStack(StackType_t *pxTopOfStack, TaskFunction_t pxCode, void *pvParameters)
 {
     extern uint32_t __global_pointer$;
-    uint8_t* task_thread_local_start;
-    uint8_t* threadptr;
+    uint8_t *task_thread_local_start;
+    uint8_t *threadptr;
     extern char _thread_local_start, _thread_local_end, _flash_rodata_start;
 
     /* Byte pointer, so that subsequent calculations don't depend on sizeof(StackType_t). */
-    uint8_t* sp = (uint8_t*) pxTopOfStack;
+    uint8_t *sp = (uint8_t *) pxTopOfStack;
 
     /* Set up TLS area.
      * The following diagram illustrates the layout of link-time and run-time
@@ -292,61 +284,95 @@ StackType_t *pxPortInitialiseStack(StackType_t *pxTopOfStack, TaskFunction_t pxC
     return (StackType_t *)frame;
 }
 
-IRAM_ATTR void vPortSysTickHandler(void *arg)
+
+
+/* ---------------------------------------------- Port Implementations -------------------------------------------------
+ *
+ * ------------------------------------------------------------------------------------------------------------------ */
+
+// --------------------- Interrupts ------------------------
+
+BaseType_t xPortInIsrContext(void)
 {
-    (void)arg;
+    return uxInterruptNesting;
+}
 
-    systimer_ll_clear_alarm_int(SYSTIMER_ALARM_0);
+BaseType_t IRAM_ATTR xPortInterruptedFromISRContext(void)
+{
+    /* For single core, this can be the same as xPortInIsrContext() because reading it is atomic */
+    return uxInterruptNesting;
+}
 
-#ifdef CONFIG_PM_TRACE
-    ESP_PM_TRACE_ENTER(TICK, xPortGetCoreID());
-#endif
+// ---------------------- Spinlocks ------------------------
 
-    if (!uxSchedulerRunning) {
-        return;
+
+
+// ------------------ Critical Sections --------------------
+
+void vPortEnterCritical(void)
+{
+    BaseType_t state = portSET_INTERRUPT_MASK_FROM_ISR();
+    uxCriticalNesting++;
+
+    if (uxCriticalNesting == 1) {
+        uxSavedInterruptState = state;
     }
+}
 
-    if (xTaskIncrementTick() != pdFALSE) {
-        vPortYieldFromISR();
+void vPortExitCritical(void)
+{
+    if (uxCriticalNesting > 0) {
+        uxCriticalNesting--;
+        if (uxCriticalNesting == 0) {
+            portCLEAR_INTERRUPT_MASK_FROM_ISR(uxSavedInterruptState);
+        }
     }
-
-#ifdef CONFIG_PM_TRACE
-    ESP_PM_TRACE_EXIT(TICK, xPortGetCoreID());
-#endif
 }
 
-BaseType_t xPortStartScheduler(void)
+// ---------------------- Yielding -------------------------
+
+int vPortSetInterruptMask(void)
 {
-    uxInterruptNesting = 0;
-    uxCriticalNesting = 0;
-    uxSchedulerRunning = 0;
-
-    vPortSetupTimer();
-
-    esprv_intc_int_set_threshold(1); /* set global INTC masking level */
-    riscv_global_interrupts_enable();
-
-    vPortYield();
-
-    /*Should not get here*/
-    return pdFALSE;
+    int ret;
+    unsigned old_mstatus = RV_CLEAR_CSR(mstatus, MSTATUS_MIE);
+    ret = REG_READ(INTERRUPT_CORE0_CPU_INT_THRESH_REG);
+    REG_WRITE(INTERRUPT_CORE0_CPU_INT_THRESH_REG, RVHAL_EXCM_LEVEL);
+    RV_SET_CSR(mstatus, old_mstatus & MSTATUS_MIE);
+    /**
+     * In theory, this function should not return immediately as there is a
+     * delay between the moment we mask the interrupt threshold register and
+     * the moment a potential lower-priority interrupt is triggered (as said
+     * above), it should have a delay of 2 machine cycles/instructions.
+     *
+     * However, in practice, this function has an epilogue of one instruction,
+     * thus the instruction masking the interrupt threshold register is
+     * followed by two instructions: `ret` and `csrrs` (RV_SET_CSR).
+     * That's why we don't need any additional nop instructions here.
+     */
+    return ret;
 }
 
-void vPortEndScheduler(void)
+void vPortClearInterruptMask(int mask)
 {
-    /* very unlikely this function will be called, so just trap here */
-    abort();
-}
-
-void vPortYieldOtherCore(BaseType_t coreid)
-{
-    esp_crosscore_int_send_yield(coreid);
-}
-
-void vPortYieldFromISR( void )
-{
-    uxSchedulerRunning = 1;
-    xPortSwitchFlag = 1;
+    REG_WRITE(INTERRUPT_CORE0_CPU_INT_THRESH_REG, mask);
+    /**
+     * The delay between the moment we unmask the interrupt threshold register
+     * and the moment the potential requested interrupt is triggered is not
+     * null: up to three machine cycles/instructions can be executed.
+     *
+     * When compilation size optimization is enabled, this function and its
+     * callers returning void will have NO epilogue, thus the instruction
+     * following these calls will be executed.
+     *
+     * If the requested interrupt is a context switch to a higher priority
+     * task then the one currently running, we MUST NOT execute any instruction
+     * before the interrupt effectively happens.
+     * In order to prevent this, force this routine to have a 3-instruction
+     * delay before exiting.
+     */
+    asm volatile ( "nop" );
+    asm volatile ( "nop" );
+    asm volatile ( "nop" );
 }
 
 void vPortYield(void)
@@ -368,56 +394,21 @@ void vPortYield(void)
         */
         while (uxSchedulerRunning && uxCriticalNesting == 0 && REG_READ(SYSTEM_CPU_INTR_FROM_CPU_0_REG) != 0) {}
     }
-
 }
 
-#define STACK_WATCH_AREA_SIZE 32
-#define STACK_WATCH_POINT_NUMBER (SOC_CPU_WATCHPOINTS_NUM - 1)
-
-void vPortSetStackWatchpoint(void *pxStackStart)
+void vPortYieldFromISR( void )
 {
-    uint32_t addr = (uint32_t)pxStackStart;
-    addr = (addr + (STACK_WATCH_AREA_SIZE - 1)) & (~(STACK_WATCH_AREA_SIZE - 1));
-    esp_set_watchpoint(STACK_WATCH_POINT_NUMBER, (char *)addr, STACK_WATCH_AREA_SIZE, ESP_WATCHPOINT_STORE);
+    traceISR_EXIT_TO_SCHEDULER();
+    uxSchedulerRunning = 1;
+    xPortSwitchFlag = 1;
 }
 
-uint32_t xPortGetTickRateHz(void) {
-	return (uint32_t)configTICK_RATE_HZ;
-}
-
-BaseType_t xPortInIsrContext(void)
+void vPortYieldOtherCore(BaseType_t coreid)
 {
-    return uxInterruptNesting;
+    esp_crosscore_int_send_yield(coreid);
 }
 
-BaseType_t IRAM_ATTR xPortInterruptedFromISRContext(void)
-{
-    /* For single core, this can be the same as xPortInIsrContext() because reading it is atomic */
-    return uxInterruptNesting;
-}
-
-
-void vPortCPUInitializeMutex(portMUX_TYPE *mux)
-{
-    (void)mux;     //TODO: IDF-2393
-}
-
-void vPortCPUAcquireMutex(portMUX_TYPE *mux)
-{
-    (void)mux;    //TODO: IDF-2393
-}
-
-bool vPortCPUAcquireMutexTimeout(portMUX_TYPE *mux, int timeout_cycles)
-{
-    (void)mux;      //TODO: IDF-2393
-    (void)timeout_cycles;
-    return true;
-}
-
-void vPortCPUReleaseMutex(portMUX_TYPE *mux)
-{
-    (void)mux;     //TODO: IDF-2393
-}
+// ------------------- Hook Functions ----------------------
 
 void __attribute__((weak)) vApplicationStackOverflowHook(TaskHandle_t xTask, char *pcTaskName)
 {
@@ -434,6 +425,32 @@ void __attribute__((weak)) vApplicationStackOverflowHook(TaskHandle_t xTask, cha
     esp_system_abort(buf);
 }
 
+// ----------------------- System --------------------------
+
+uint32_t xPortGetTickRateHz(void)
+{
+    return (uint32_t)configTICK_RATE_HZ;
+}
+
+#define STACK_WATCH_AREA_SIZE 32
+#define STACK_WATCH_POINT_NUMBER (SOC_CPU_WATCHPOINTS_NUM - 1)
+
+void vPortSetStackWatchpoint(void *pxStackStart)
+{
+    uint32_t addr = (uint32_t)pxStackStart;
+    addr = (addr + (STACK_WATCH_AREA_SIZE - 1)) & (~(STACK_WATCH_AREA_SIZE - 1));
+    esp_cpu_set_watchpoint(STACK_WATCH_POINT_NUMBER, (char *)addr, STACK_WATCH_AREA_SIZE, ESP_WATCHPOINT_STORE);
+}
+
+
+
+/* ---------------------------------------------- Misc Implementations -------------------------------------------------
+ *
+ * ------------------------------------------------------------------------------------------------------------------ */
+
+// --------------------- App Start-up ----------------------
+
+/* [refactor-todo]: See if we can include this through a header */
 extern void esp_startup_start_app_common(void);
 
 void esp_startup_start_app(void)

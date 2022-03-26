@@ -1,16 +1,8 @@
-// Copyright 2015-2017 Espressif Systems (Shanghai) PTE LTD
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/*
+ * SPDX-FileCopyrightText: 2015-2021 Espressif Systems (Shanghai) CO LTD
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 #include <esp_event.h>
 #include <esp_wifi.h>
@@ -27,6 +19,7 @@
 #include "driver/adc2_wifi_private.h"
 #include "esp_coexist_internal.h"
 #include "esp_phy_init.h"
+#include "phy.h"
 
 #if (CONFIG_ESP32_WIFI_RX_BA_WIN > CONFIG_ESP32_WIFI_DYNAMIC_RX_BUFFER_NUM)
 #error "WiFi configuration check: WARNING, WIFI_RX_BA_WIN should not be larger than WIFI_DYNAMIC_RX_BUFFER_NUM!"
@@ -84,17 +77,17 @@ static void esp_wifi_set_log_level(void)
 {
     wifi_log_level_t wifi_log_level = WIFI_LOG_INFO;
     /* set WiFi log level */
-#if CONFIG_WIFI_LOG_DEFAULT_LEVEL_NONE
+#if CONFIG_LOG_MAXIMUM_LEVEL == 0
     wifi_log_level = WIFI_LOG_NONE;
-#elif CONFIG_WIFI_LOG_DEFAULT_LEVEL_ERROR
+#elif CONFIG_LOG_MAXIMUM_LEVEL == 1
     wifi_log_level = WIFI_LOG_ERROR;
-#elif CONFIG_WIFI_LOG_DEFAULT_LEVEL_WARN
+#elif CONFIG_LOG_MAXIMUM_LEVEL == 2
     wifi_log_level = WIFI_LOG_WARNING;
-#elif CONFIG_WIFI_LOG_DEFAULT_LEVEL_INFO
+#elif CONFIG_LOG_MAXIMUM_LEVEL == 3
     wifi_log_level = WIFI_LOG_INFO;
-#elif CONFIG_WIFI_LOG_DEFAULT_LEVEL_DEBUG
+#elif CONFIG_LOG_MAXIMUM_LEVEL == 4
     wifi_log_level = WIFI_LOG_DEBUG;
-#elif CONFIG_WIFI_LOG_DEFAULT_LEVEL_VERBOSE
+#elif CONFIG_LOG_MAXIMUM_LEVEL == 5
     wifi_log_level = WIFI_LOG_VERBOSE;
 #endif
     esp_wifi_internal_set_log_level(wifi_log_level);
@@ -107,6 +100,11 @@ esp_err_t esp_wifi_deinit(void)
     if (esp_wifi_get_user_init_flag_internal()) {
         ESP_LOGE(TAG, "Wi-Fi not stop");
         return ESP_ERR_WIFI_NOT_STOPPED;
+    }
+
+    if (esp_wifi_internal_reg_rxcb(WIFI_IF_STA,  NULL) != ESP_OK ||
+        esp_wifi_internal_reg_rxcb(WIFI_IF_AP,  NULL) != ESP_OK) {
+        ESP_LOGW(TAG, "Failed to unregister Rx callbacks");
     }
 
     esp_supplicant_deinit();
@@ -122,6 +120,9 @@ esp_err_t esp_wifi_deinit(void)
 #if CONFIG_ESP_WIFI_SLP_IRAM_OPT
     esp_pm_unregister_light_sleep_default_params_config_callback();
 #endif
+#if CONFIG_ESP_WIFI_SLP_IRAM_OPT
+    esp_pm_unregister_light_sleep_default_params_config_callback();
+#endif
 #if CONFIG_FREERTOS_USE_TICKLESS_IDLE
 #if SOC_WIFI_HW_TSF
     esp_pm_unregister_skip_light_sleep_callback(esp_wifi_internal_is_tsf_active);
@@ -133,6 +134,10 @@ esp_err_t esp_wifi_deinit(void)
     esp_unregister_mac_bb_pd_callback(pm_mac_sleep);
     esp_unregister_mac_bb_pu_callback(pm_mac_wakeup);
 #endif
+#if CONFIG_IDF_TARGET_ESP32C3
+    phy_init_flag();
+#endif
+    esp_wifi_power_domain_off();
     return err;
 }
 
@@ -177,6 +182,7 @@ static void esp_wifi_config_info(void)
 
 esp_err_t esp_wifi_init(const wifi_init_config_t *config)
 {
+    esp_wifi_power_domain_on();
 #ifdef CONFIG_PM_ENABLE
     if (s_wifi_modem_sleep_lock == NULL) {
         esp_err_t err = esp_pm_lock_create(ESP_PM_APB_FREQ_MAX, 0, "wifi",
@@ -237,7 +243,7 @@ esp_err_t esp_wifi_init(const wifi_init_config_t *config)
         ESP_LOGW(TAG, "Failed to set default Wi-Fi event handlers (0x%x)", err);
     }
 #endif
-#if CONFIG_SW_COEXIST_ENABLE
+#if CONFIG_SW_COEXIST_ENABLE || CONFIG_EXTERNAL_COEX_ENABLE
     coex_init();
 #endif
     esp_wifi_set_log_level();
@@ -307,5 +313,11 @@ void set_xpd_sar(bool en)
 void ieee80211_ftm_attach(void)
 {
     /* Do not remove, stub to overwrite weak link in Wi-Fi Lib */
+}
+#endif
+
+#ifndef CONFIG_ESP_WIFI_SOFTAP_SUPPORT
+void net80211_softap_funcs_init(void)
+{
 }
 #endif

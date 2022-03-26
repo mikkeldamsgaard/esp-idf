@@ -1,16 +1,8 @@
-// Copyright 2015-2016 Espressif Systems (Shanghai) PTE LTD
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/*
+ * SPDX-FileCopyrightText: 2015-2021 Espressif Systems (Shanghai) CO LTD
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
 #include "sdkconfig.h"
 
 #include "bootloader_flash_priv.h"
@@ -28,6 +20,7 @@
 #include <sys/param.h>
 #include "esp_secure_boot.h"
 #include "esp_ota_ops.h"
+#include "esp_efuse.h"
 
 // Secure boot V2 for app
 
@@ -108,10 +101,9 @@ static esp_err_t get_secure_boot_key_digests(esp_image_sig_public_key_digests_t 
     return esp_secure_boot_get_signature_blocks_for_running_app(true, public_key_digests);
 #elif CONFIG_SECURE_BOOT_V2_ENABLED
     ESP_LOGI(TAG, "Take trusted digest key(s) from eFuse block(s)");
-#if SOC_EFUSE_SECURE_BOOT_KEY_DIGESTS > 1
     // Read key digests from efuse
     ets_secure_boot_key_digests_t efuse_trusted;
-    if (ets_secure_boot_read_key_digests(&efuse_trusted) == ETS_OK) {
+    if (esp_secure_boot_read_key_digests(&efuse_trusted) == ESP_OK) {
         for (unsigned i = 0; i < SECURE_BOOT_NUM_BLOCKS; i++) {
             if (efuse_trusted.key_digests[i] != NULL) {
                 memcpy(public_key_digests->key_digests[i], (uint8_t *)efuse_trusted.key_digests[i], ESP_SECURE_BOOT_DIGEST_LEN);
@@ -123,11 +115,6 @@ static esp_err_t get_secure_boot_key_digests(esp_image_sig_public_key_digests_t 
         return ESP_OK;
     }
     return ESP_ERR_NOT_FOUND;
-#else
-    memcpy(public_key_digests->key_digests[0], (uint8_t *)EFUSE_BLK2_RDATA0_REG, ESP_SECURE_BOOT_DIGEST_LEN);
-    public_key_digests->num_digests = 1;
-    return ESP_OK;
-#endif // SOC_EFUSE_SECURE_BOOT_KEY_DIGESTS
 #endif // CONFIG_SECURE_BOOT_V2_ENABLED
 }
 

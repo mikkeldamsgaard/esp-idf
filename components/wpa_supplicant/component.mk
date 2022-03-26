@@ -1,8 +1,12 @@
 # supplicant make file
 
-COMPONENT_PRIV_INCLUDEDIRS := src src/utils
-COMPONENT_SRCDIRS := port src/ap src/common src/crypto src/eap_peer src/rsn_supp src/tls src/utils src/esp_supplicant src/wps
-COMPONENT_ADD_INCLUDEDIRS := include port/include include/esp_supplicant src/utils
+COMPONENT_PRIV_INCLUDEDIRS := src src/utils esp_supplicant/src
+COMPONENT_SRCDIRS := port src/ap src/common src/crypto src/eap_peer src/rsn_supp src/tls src/utils src/wps esp_supplicant/src
+COMPONENT_ADD_INCLUDEDIRS := include port/include esp_supplicant/include src/utils
+
+ifeq ($(CONFIG_ESP_WIFI_SOFTAP_SUPPORT), y)
+    COMPONENT_OBJEXCLUDE += src/esp_hostap.o
+endif
 
 ifeq ($(CONFIG_WPA_MBEDTLS_CRYPTO), y)
     COMPONENT_OBJEXCLUDE += src/tls/asn1.o \
@@ -67,15 +71,33 @@ ifneq ($(CONFIG_WPA_11KV_SUPPORT), y)
     src/common/bss.o \
     src/common/scan.o \
     src/common/ieee802_11_common.o \
-    src/esp_supplicant/esp_common.o \
-    src/esp_supplicant/esp_scan.o
+    esp_supplicant/src/esp_common.o \
+    esp_supplicant/src/esp_scan.o
+endif
+ifneq ($(CONFIG_WPA_MBO_SUPPORT), y)
+    COMPONENT_OBJEXCLUDE += src/common/mbo.o
 endif
 
-CFLAGS += -DCONFIG_DPP -DCONFIG_IEEE80211W -DESP_SUPPLICANT -DIEEE8021X_EAPOL -DEAP_PEER_METHOD -DEAP_TLS -DEAP_TTLS -DEAP_PEAP -DEAP_MSCHAPv2 -DUSE_WPA2_TASK -DCONFIG_WPS2 -DCONFIG_WPS_PIN -DUSE_WPS_TASK -DESPRESSIF_USE -DESP32_WORKAROUND -DCONFIG_ECC -DCONFIG_WNM -D__ets__ -Wno-strict-aliasing
+CFLAGS += -DCONFIG_SHA256 -DCONFIG_DPP -DCONFIG_IEEE80211W -DESP_SUPPLICANT -DIEEE8021X_EAPOL -DEAP_PEER_METHOD -DEAP_TLS -DEAP_TTLS -DEAP_PEAP -DEAP_MSCHAPv2 -DUSE_WPA2_TASK -DCONFIG_WPS2 -DCONFIG_WPS_PIN -DUSE_WPS_TASK -DESPRESSIF_USE -DESP32_WORKAROUND -DCONFIG_ECC -DCONFIG_WNM -D__ets__ -Wno-strict-aliasing
 
 ifdef CONFIG_ESP32_WIFI_ENABLE_WPA3_SAE
-	CFLAGS += -DCONFIG_WPA3_SAE
+    CFLAGS += -DCONFIG_WPA3_SAE
 endif
 ifdef CONFIG_WPA_WPS_STRICT
 	CFLAGS += -DCONFIG_WPS_STRICT
+endif
+ifdef CONFIG_WPA_MBO_SUPPORT
+	CFLAGS += -DCONFIG_MBO
+endif
+ifdef CONFIG_WPA_SUITE_B_192
+	CFLAGS += -DCONFIG_SUITEB192
+endif
+ifdef CONFIG_WPA_SUITE_B
+	CFLAGS += -DCONFIG_SUITEB
+endif
+ifdef CONFIG_ESP_WIFI_GCMP_SUPPORT
+	CFLAGS += -DCONFIG_GCMP
+endif
+ifdef CONFIG_ESP_WIFI_GMAC_SUPPORT
+	CFLAGS += -DCONFIG_GMAC
 endif

@@ -1,16 +1,8 @@
-// Copyright 2015-2017 Espressif Systems (Shanghai) PTE LTD
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/*
+ * SPDX-FileCopyrightText: 2015-2021 Espressif Systems (Shanghai) CO LTD
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 #include <string.h>
 #include <stdbool.h>
@@ -27,6 +19,8 @@
 #include "sdkconfig.h"
 #include "driver/uart_select.h"
 #include "esp_rom_uart.h"
+#include "soc/soc_caps.h"
+#include "hal/uart_ll.h"
 
 // TODO: make the number of UARTs chip dependent
 #define UART_NUM SOC_UART_NUM
@@ -157,14 +151,13 @@ static int uart_open(const char * path, int flags, int mode)
 static void uart_tx_char(int fd, int c)
 {
     uart_dev_t* uart = s_ctx[fd]->uart;
-    while (uart->status.txfifo_cnt >= 127) {
+    const uint8_t ch = (uint8_t) c;
+
+    while (uart_ll_get_txfifo_len(uart) < 2) {
         ;
     }
-#if CONFIG_IDF_TARGET_ESP32
-    uart->fifo.rw_byte = c;
-#else // CONFIG_IDF_TARGET_ESP32
-    uart->ahb_fifo.rw_byte = c;
-#endif
+
+    uart_ll_write_txfifo(uart, &ch, 1);
 }
 
 static void uart_tx_char_via_driver(int fd, int c)
@@ -176,14 +169,13 @@ static void uart_tx_char_via_driver(int fd, int c)
 static int uart_rx_char(int fd)
 {
     uart_dev_t* uart = s_ctx[fd]->uart;
-    if (uart->status.rxfifo_cnt == 0) {
+    uint8_t ch;
+    if (uart_ll_get_rxfifo_len(uart) == 0) {
         return NONE;
     }
-#if CONFIG_IDF_TARGET_ESP32
-    return uart->fifo.rw_byte;
-#else // CONFIG_IDF_TARGET_ESP32
-    return READ_PERI_REG(UART_FIFO_AHB_REG(fd));
-#endif
+    uart_ll_read_rxfifo(uart, &ch, 1);
+
+    return ch;
 }
 
 static int uart_rx_char_via_driver(int fd)
@@ -969,31 +961,37 @@ static int uart_tcflush(int fd, int select)
 }
 #endif // CONFIG_VFS_SUPPORT_TERMIOS
 
-void esp_vfs_dev_uart_register(void)
-{
-    esp_vfs_t vfs = {
-        .flags = ESP_VFS_FLAG_DEFAULT,
-        .write = &uart_write,
-        .open = &uart_open,
-        .fstat = &uart_fstat,
-        .close = &uart_close,
-        .read = &uart_read,
-        .fcntl = &uart_fcntl,
-        .fsync = &uart_fsync,
+static const esp_vfs_t vfs = {
+    .flags = ESP_VFS_FLAG_DEFAULT,
+    .write = &uart_write,
+    .open = &uart_open,
+    .fstat = &uart_fstat,
+    .close = &uart_close,
+    .read = &uart_read,
+    .fcntl = &uart_fcntl,
+    .fsync = &uart_fsync,
 #ifdef CONFIG_VFS_SUPPORT_DIR
-        .access = &uart_access,
+    .access = &uart_access,
 #endif // CONFIG_VFS_SUPPORT_DIR
 #ifdef CONFIG_VFS_SUPPORT_SELECT
-        .start_select = &uart_start_select,
-        .end_select = &uart_end_select,
+    .start_select = &uart_start_select,
+    .end_select = &uart_end_select,
 #endif // CONFIG_VFS_SUPPORT_SELECT
 #ifdef CONFIG_VFS_SUPPORT_TERMIOS
-        .tcsetattr = &uart_tcsetattr,
-        .tcgetattr = &uart_tcgetattr,
-        .tcdrain = &uart_tcdrain,
-        .tcflush = &uart_tcflush,
+    .tcsetattr = &uart_tcsetattr,
+    .tcgetattr = &uart_tcgetattr,
+    .tcdrain = &uart_tcdrain,
+    .tcflush = &uart_tcflush,
 #endif // CONFIG_VFS_SUPPORT_TERMIOS
-    };
+};
+
+const esp_vfs_t* esp_vfs_uart_get_vfs(void)
+{
+    return &vfs;
+}
+
+void esp_vfs_dev_uart_register(void)
+{
     ESP_ERROR_CHECK(esp_vfs_register("/dev/uart", &vfs, NULL));
 }
 

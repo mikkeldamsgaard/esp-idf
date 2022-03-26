@@ -1,20 +1,20 @@
-UART
-====
+Universal Asynchronous Receiver/Transmitter (UART)
+==================================================
 
-{IDF_TARGET_UART_NUM:default = "UART_NUM_1", esp32 = "UART_NUM_2", esp32s2 = "UART_NUM_1"}
+{IDF_TARGET_UART_NUM:default = "UART_NUM_1", esp32 = "UART_NUM_2", esp32s3 = "UART_NUM_2"}
 
 Overview
 --------
 
-A Universal Asynchronous Receiver/Transmitter (UART) is a hardware feature that handles communication (i.e., timing requirements and data framing) using widely-adapted asynchronous serial communication interfaces, such as RS232, RS422, RS485. A UART provides a widely adopted and cheap method to realize full-duplex or half-duplex data exchange among different devices.
+A Universal Asynchronous Receiver/Transmitter (UART) is a hardware feature that handles communication (i.e., timing requirements and data framing) using widely-adopted asynchronous serial communication interfaces, such as RS232, RS422, RS485. A UART provides a widely adopted and cheap method to realize full-duplex or half-duplex data exchange among different devices.
 
-.. only:: esp32
+.. only:: esp32 or esp32s3
 
-    The ESP32 chip has three UART controllers (UART0, UART1, and UART2) that feature an identical set of registers for ease of programming and flexibility.
+    The {IDF_TARGET_NAME} chip has three UART controllers (UART0, UART1, and UART2), each featuring an identical set of registers to simplify programming and for more flexibility.
 
 .. only:: esp32s2 or esp32c3
 
-    The {IDF_TARGET_NAME} chip has two UART controllers (UART0 and UART1) that feature an identical set of registers for ease of programming and flexibility.
+    The {IDF_TARGET_NAME} chip has two UART controllers (UART0 and UART1), each featuring an identical set of registers to simplify programming and for more flexibility.
 
 Each UART controller is independently configurable with parameters such as baud rate, data bit length, bit ordering, number of stop bits, parity bit etc. All the controllers are compatible with UART-enabled devices from various manufacturers and can also support Infrared Data Association protocols (IrDA).
 
@@ -50,7 +50,7 @@ Call the function :cpp:func:`uart_param_config` and pass to it a :cpp:type:`uart
 
 .. code-block:: c
 
-    const int uart_num = {IDF_TARGET_UART_NUM};
+    const uart_port_t uart_num = {IDF_TARGET_UART_NUM};
     uart_config_t uart_config = {
         .baud_rate = 115200,
         .data_bits = UART_DATA_8_BITS,
@@ -99,28 +99,10 @@ After setting communication parameters, configure the physical GPIO pins to whic
 
 The same macro should be specified for pins that will not be used.
 
+.. code-block:: c
 
-
-.. only:: esp32
-
-  .. code-block:: c
-
-    // Set UART pins(TX: IO17 (UART2 default), RX: IO16 (UART2 default), RTS: IO18, CTS: IO19)
-    ESP_ERROR_CHECK(uart_set_pin(UART_NUM_2, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE, 18, 19));
-
-.. only:: esp32s2
-
-  .. code-block:: c
-
-    // Set UART pins(TX: IO17 (UART1 default), RX: IO18 (UART1 default), RTS: IO19, CTS: IO20)
-    ESP_ERROR_CHECK(uart_set_pin(UART_NUM_1, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE, 19, 20));
-
-.. only:: esp32c3
-
-  .. code-block:: c
-  
-    // Set UART pins(TX: IO4, RX: IO5, RTS: IO19, CTS: IO20)
-    ESP_ERROR_CHECK(uart_set_pin(UART_NUM_1, 4, 5, 19, 20));
+  // Set UART pins(TX: IO4, RX: IO5, RTS: IO18, CTS: IO19)
+  ESP_ERROR_CHECK(uart_set_pin({IDF_TARGET_UART_NUM}, 4, 5, 18, 19));
 
 .. _uart-api-driver-installation:
 
@@ -188,16 +170,14 @@ The function :cpp:func:`uart_write_bytes_with_break` is similar to :cpp:func:`ua
     // Write data to UART, end with a break signal.
     uart_write_bytes_with_break(uart_num, "test break\n",strlen("test break\n"), 100);
 
-As an alternative to :cpp:func:`uart_write_bytes` and :cpp:func:`uart_write_bytes_with_break` you can also use :cpp:func:`uart_write_bytes_non_blocking` or :cpp:func:`uart_write_bytes_with_break_non_blocking`.  These will never block, but may write fewer bytes than requested.  As with the regular functions, the number of bytes actually written is returned.
-
-Another function for writing data to the Tx FIFO buffer is :cpp:func:`uart_tx_chars`. Unlike :cpp:func:`uart_write_bytes`, this function will not block until space is available. Instead, it will write all data which can immediately fit into the hardware Tx FIFO, and then return the number of bytes that were written.  This should only be used if the UART was configures without a transmit buffer.
+Another function for writing data to the Tx FIFO buffer is :cpp:func:`uart_tx_chars`. Unlike :cpp:func:`uart_write_bytes`, this function will not block until space is available. Instead, it will write all data which can immediately fit into the hardware Tx FIFO, and then return the number of bytes that were written.
 
 There is a 'companion' function :cpp:func:`uart_wait_tx_done` that monitors the status of the Tx FIFO buffer and returns once it is empty.
 
 .. code-block:: c
 
     // Wait for packet to be sent
-    const int uart_num = {IDF_TARGET_UART_NUM};
+    const uart_port_t uart_num = {IDF_TARGET_UART_NUM};
     ESP_ERROR_CHECK(uart_wait_tx_done(uart_num, 100)); // wait timeout is 100 RTOS ticks (TickType_t)
 
 
@@ -209,7 +189,7 @@ Once the data is received by the UART and saved in the Rx FIFO buffer, it needs 
 .. code-block:: c
 
     // Read data from UART.
-    const int uart_num = {IDF_TARGET_UART_NUM};
+    const uart_port_t uart_num = {IDF_TARGET_UART_NUM};
     uint8_t data[128];
     int length = 0;
     ESP_ERROR_CHECK(uart_get_buffered_data_len(uart_num, (size_t*)&length));

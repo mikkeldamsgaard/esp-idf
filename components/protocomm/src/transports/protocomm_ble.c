@@ -1,16 +1,8 @@
-// Copyright 2018 Espressif Systems (Shanghai) PTE LTD
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/*
+ * SPDX-FileCopyrightText: 2018-2021 Espressif Systems (Shanghai) CO LTD
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 #include <sys/param.h>
 #include <esp_log.h>
@@ -395,7 +387,8 @@ static ssize_t populate_gatt_db(esp_gatts_attr_db_t **gatt_db_generated)
             (*gatt_db_generated)[i].att_desc.value        = (uint8_t *) &character_prop_read_write;
         } else if (i % 3 == 2) {
             /* Characteristic Value */
-            (*gatt_db_generated)[i].att_desc.perm         = ESP_GATT_PERM_READ | ESP_GATT_PERM_WRITE;
+            (*gatt_db_generated)[i].att_desc.perm         = ESP_GATT_PERM_READ | ESP_GATT_PERM_WRITE | \
+                    ESP_GATT_PERM_READ_ENCRYPTED | ESP_GATT_PERM_WRITE_ENCRYPTED;
             (*gatt_db_generated)[i].att_desc.uuid_length  = ESP_UUID_LEN_128;
             (*gatt_db_generated)[i].att_desc.uuid_p       = protoble_internal->g_nu_lookup[i / 3].uuid128;
             (*gatt_db_generated)[i].att_desc.max_length   = CHAR_VAL_LEN_MAX;
@@ -652,6 +645,8 @@ esp_err_t protocomm_ble_start(protocomm_t *pc, const protocomm_ble_config_t *con
 
     ble_config->device_name     = protocomm_ble_device_name;
     ble_config->gatt_db_count   = populate_gatt_db(&ble_config->gatt_db);
+
+    ble_config->ble_bonding = config->ble_bonding;
 
     if (ble_config->gatt_db_count == -1) {
         ESP_LOGE(TAG, "Invalid GATT database count");

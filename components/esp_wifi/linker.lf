@@ -1,14 +1,100 @@
-[mapping:phy]
-archive: libphy.a
+[sections:wifi_iram]
 entries:
-    * (noflash_data)
-    if ESP_WIFI_SLP_IRAM_OPT = y && IDF_TARGET_ESP32 = y:
-        * (phy_iram)
+    .wifi0iram+
 
-[mapping:rtc]
-archive: librtc.a
+[sections:wifi_rx_iram]
 entries:
-    * (noflash_text)
+    .wifirxiram+
+
+[sections:wifi_slp_iram]
+entries:
+    .wifislpiram+
+
+[sections:wifi_or_slp_iram]
+entries:
+    .wifiorslpiram+
+
+[sections:wifi_slp_rx_iram]
+entries:
+    .wifislprxiram+
+
+[scheme:wifi_iram]
+entries:
+    wifi_iram -> iram0_text
+
+[scheme:wifi_rx_iram]
+entries:
+    wifi_rx_iram -> iram0_text
+
+[scheme:extram_bss]
+entries:
+    bss -> extern_ram
+    common -> extern_ram
+
+[scheme:wifi_slp_iram]
+entries:
+    wifi_slp_iram -> iram0_text
+
+[scheme:wifi_or_slp_iram]
+entries:
+    wifi_or_slp_iram -> iram0_text
+
+[scheme:wifi_slp_rx_iram]
+entries:
+    wifi_slp_rx_iram -> iram0_text
+
+[sections:wifi_log_error]
+entries:
+    .rodata_wlog_error+
+
+[sections:wifi_log_warning]
+entries:
+    .rodata_wlog_warning+
+
+[sections:wifi_log_info]
+entries:
+    .rodata_wlog_info+
+
+[sections:wifi_log_debug]
+entries:
+    .rodata_wlog_debug+
+
+[sections:wifi_log_verbose]
+entries:
+    .rodata_wlog_verbose+
+
+[scheme:wifi_default]
+entries:
+    wifi_slp_iram -> flash_text
+    wifi_or_slp_iram -> flash_text
+    wifi_slp_rx_iram -> flash_text
+    wifi_iram -> flash_text
+    wifi_rx_iram -> flash_text
+    if LOG_MAXIMUM_LEVEL <= 0:
+        wifi_log_error -> rodata_noload
+    else:
+        wifi_log_error -> flash_rodata
+    if LOG_MAXIMUM_LEVEL <= 1:
+        wifi_log_warning -> rodata_noload
+    else:
+        wifi_log_warning -> flash_rodata
+    if LOG_MAXIMUM_LEVEL <= 2:
+        wifi_log_info -> rodata_noload
+    else:
+        wifi_log_info -> flash_rodata
+    if LOG_MAXIMUM_LEVEL <= 3:
+        wifi_log_debug -> rodata_noload
+    else:
+        wifi_log_debug -> flash_rodata
+    if LOG_MAXIMUM_LEVEL <= 4:
+        wifi_log_verbose -> rodata_noload
+    else:
+        wifi_log_verbose -> flash_rodata
+
+[mapping:wifi_default]
+archive: *
+entries:
+    * (wifi_default)
 
 [mapping:pp]
 archive: libpp.a
@@ -61,8 +147,6 @@ entries:
     if ESP_WIFI_SLP_IRAM_OPT =y:
         esp_adapter:wifi_clock_enable_wrapper (noflash)
         esp_adapter:wifi_clock_disable_wrapper (noflash)
-        phy_init:esp_phy_enable (noflash)
-        phy_init:esp_phy_disable (noflash)
         wifi_init:wifi_apb80m_request (noflash)
         wifi_init:wifi_apb80m_release (noflash)
 

@@ -1,20 +1,8 @@
-// Copyright 2018 Espressif Systems (Shanghai) PTE LTD
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-//
-// This module implements pthread API on top of FreeRTOS. API is implemented to the level allowing
-// libstdcxx threading framework to operate correctly. So not all original pthread routines are supported.
-//
+/*
+ * SPDX-FileCopyrightText: 2018-2021 Espressif Systems (Shanghai) CO LTD
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 #include <time.h>
 #include <errno.h>
@@ -31,7 +19,6 @@
 #include "pthread_internal.h"
 #include "esp_pthread.h"
 
-#define LOG_LOCAL_LEVEL CONFIG_LOG_DEFAULT_LEVEL
 #include "esp_log.h"
 const static char *TAG = "pthread";
 
@@ -65,9 +52,8 @@ typedef struct {
     int                 type;       ///< Mutex type. Currently supported PTHREAD_MUTEX_NORMAL and PTHREAD_MUTEX_RECURSIVE
 } esp_pthread_mutex_t;
 
-
 static SemaphoreHandle_t s_threads_mux  = NULL;
-static portMUX_TYPE s_mutex_init_lock   = portMUX_INITIALIZER_UNLOCKED;
+portMUX_TYPE pthread_lazy_init_lock  = portMUX_INITIALIZER_UNLOCKED; // Used for mutexes and cond vars and rwlocks
 static SLIST_HEAD(esp_thread_list_head, esp_pthread_entry) s_threads_list
                                         = SLIST_HEAD_INITIALIZER(s_threads_list);
 static pthread_key_t s_pthread_cfg_key;
@@ -586,6 +572,10 @@ int pthread_mutex_destroy(pthread_mutex_t *mutex)
     if (!mutex) {
         return EINVAL;
     }
+    if ((intptr_t) *mutex == PTHREAD_MUTEX_INITIALIZER) {
+        return 0; // Static mutex was never initialized
+    }
+
     mux = (esp_pthread_mutex_t *)*mutex;
     if (!mux) {
         return EINVAL;
@@ -639,11 +629,11 @@ static int pthread_mutex_init_if_static(pthread_mutex_t *mutex)
 {
     int res = 0;
     if ((intptr_t) *mutex == PTHREAD_MUTEX_INITIALIZER) {
-        portENTER_CRITICAL(&s_mutex_init_lock);
+        portENTER_CRITICAL(&pthread_lazy_init_lock);
         if ((intptr_t) *mutex == PTHREAD_MUTEX_INITIALIZER) {
             res = pthread_mutex_init(mutex, NULL);
         }
-        portEXIT_CRITICAL(&s_mutex_init_lock);
+        portEXIT_CRITICAL(&pthread_lazy_init_lock);
     }
     return res;
 }
@@ -729,6 +719,7 @@ int pthread_mutexattr_init(pthread_mutexattr_t *attr)
     if (!attr) {
         return EINVAL;
     }
+    memset(attr, 0, sizeof(*attr));
     attr->type = PTHREAD_MUTEX_NORMAL;
     attr->is_initialized = 1;
     return 0;
@@ -770,6 +761,7 @@ int pthread_attr_init(pthread_attr_t *attr)
 {
     if (attr) {
         /* Nothing to allocate. Set everything to default */
+        memset(attr, 0, sizeof(*attr));
         attr->stacksize   = CONFIG_PTHREAD_TASK_STACK_SIZE_DEFAULT;
         attr->detachstate = PTHREAD_CREATE_JOINABLE;
         return 0;
@@ -779,13 +771,8 @@ int pthread_attr_init(pthread_attr_t *attr)
 
 int pthread_attr_destroy(pthread_attr_t *attr)
 {
-    if (attr) {
-        /* Nothing to deallocate. Reset everything to default */
-        attr->stacksize   = CONFIG_PTHREAD_TASK_STACK_SIZE_DEFAULT;
-        attr->detachstate = PTHREAD_CREATE_JOINABLE;
-        return 0;
-    }
-    return EINVAL;
+    /* Nothing to deallocate. Reset everything to default */
+    return pthread_attr_init(attr);
 }
 
 int pthread_attr_getstacksize(const pthread_attr_t *attr, size_t *stacksize)

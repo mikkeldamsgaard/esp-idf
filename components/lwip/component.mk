@@ -35,6 +35,13 @@ ifndef CONFIG_VFS_SUPPORT_IO
 else
     COMPONENT_OBJEXCLUDE += port/esp32/no_vfs_syscalls.o
 endif
+ifndef CONFIG_OPENTHREAD_ENABLED
+    COMPONENT_OBJEXCLUDE += port/esp32/netif/openthreadif.o
+endif
+
+ifndef CONFIG_LWIP_ICMP
+    COMPONENT_OBJEXCLUDE += apps/ping/esp_ping.o apps/ping/ping.o apps/ping/ping_sock.o
+endif
 
 ifndef CONFIG_LWIP_ICMP
     COMPONENT_OBJEXCLUDE += apps/ping/esp_ping.o apps/ping/ping.o apps/ping/ping_sock.o

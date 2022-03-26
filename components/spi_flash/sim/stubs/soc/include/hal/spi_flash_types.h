@@ -1,17 +1,11 @@
-// Copyright 2010-2019 Espressif Systems (Shanghai) PTE LTD
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
+/*
+ * SPDX-FileCopyrightText: 2015-2021 Espressif Systems (Shanghai) CO LTD
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * This is a STUB FILE HEADER used when compiling ESP-IDF to run tests on the host system.
+ * The header file used normally for ESP-IDF has the same name but is located elsewhere.
+ */
 #pragma once
 
 #ifdef __cplusplus
@@ -40,6 +34,11 @@ typedef enum {
 
     SPI_FLASH_READ_MODE_MAX,    ///< The fastest io mode supported by the host is ``ESP_FLASH_READ_MODE_MAX-1``.
 } esp_flash_io_mode_t;
+
+/**
+ * Configuration structure for the flash chip suspend feature.
+ */
+typedef struct spi_flash_sus_cmd_conf_dummy spi_flash_sus_cmd_conf;
 
 struct spi_flash_host_driver_s;
 typedef struct spi_flash_host_driver_s spi_flash_host_driver_t;

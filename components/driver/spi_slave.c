@@ -1,16 +1,8 @@
-// Copyright 2015-2018 Espressif Systems (Shanghai) PTE LTD
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/*
+ * SPDX-FileCopyrightText: 2015-2021 Espressif Systems (Shanghai) CO LTD
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 #include <string.h>
 #include "esp_types.h"
@@ -148,7 +140,7 @@ esp_err_t spi_slave_initialize(spi_host_device_t host, const spi_bus_config_t *b
     bool use_dma = (dma_chan != SPI_DMA_DISABLED);
     spihost[host]->dma_enabled = use_dma;
     if (use_dma) {
-        ret = spicommon_slave_dma_chan_alloc(host, dma_chan, &actual_tx_dma_chan, &actual_rx_dma_chan);
+        ret = spicommon_dma_chan_alloc(host, dma_chan, &actual_tx_dma_chan, &actual_rx_dma_chan);
         if (ret != ESP_OK) {
             goto cleanup;
         }
@@ -248,7 +240,7 @@ cleanup:
     }
     spi_slave_hal_deinit(&spihost[host]->hal);
     if (spihost[host]->dma_enabled) {
-        spicommon_slave_free_dma(host);
+        spicommon_dma_chan_free(host);
     }
 
     free(spihost[host]);
@@ -265,7 +257,7 @@ esp_err_t spi_slave_free(spi_host_device_t host)
     if (spihost[host]->trans_queue) vQueueDelete(spihost[host]->trans_queue);
     if (spihost[host]->ret_queue) vQueueDelete(spihost[host]->ret_queue);
     if (spihost[host]->dma_enabled) {
-        spicommon_slave_free_dma(host);
+        spicommon_dma_chan_free(host);
     }
     free(spihost[host]->hal.dmadesc_tx);
     free(spihost[host]->hal.dmadesc_rx);

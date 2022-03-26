@@ -1,16 +1,8 @@
-// Copyright 2015-2018 Espressif Systems (Shanghai) PTE LTD
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/*
+ * SPDX-FileCopyrightText: 2015-2021 Espressif Systems (Shanghai) CO LTD
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 #include <string.h>
 #include <ctype.h>
@@ -116,11 +108,11 @@ void http_utils_trim_whitespace(char **str)
 
 char *http_utils_get_string_between(const char *str, const char *begin, const char *end)
 {
-    char *found = strstr(str, begin);
+    char *found = strcasestr(str, begin);
     char *ret = NULL;
     if (found) {
         found += strlen(begin);
-        char *found_end = strstr(found, end);
+        char *found_end = strcasestr(found, end);
         if (found_end) {
             ret = calloc(1, found_end - found + 1);
             mem_check(ret);
@@ -141,7 +133,7 @@ int http_utils_str_starts_with(const char *str, const char *start)
         return -1;
     }
     for (i = 0; i < start_len; i++) {
-        if (str[i] != start[i]) {
+        if (tolower(str[i]) != tolower(start[i])) {
             return 1;
         }
     }

@@ -1,11 +1,12 @@
-LED Control
-===========
+LED Control (LEDC)
+==================
 {IDF_TARGET_LEDC_CHAN_NUM:default="8", esp32="16", esp32s2="8", esp32c3="6"}
 
 :link_to_translation:`zh_CN:[中文]`
 
 Introduction
 ------------
+
 The LED control (LEDC) peripheral is primarily designed to control the intensity of LEDs, although it can also be used to generate PWM signals for other purposes.
 It has {IDF_TARGET_LEDC_CHAN_NUM} channels which can generate independent waveforms that can be used, for example, to drive RGB LED devices.
 
@@ -191,12 +192,12 @@ The duty resolution is normally set using :cpp:type:`ledc_timer_bit_t`. This enu
 Application Example
 -------------------
 
-The LEDC change duty cycle and fading control example: :example:`peripherals/ledc`.
+The LEDC change duty cycle and fading control example: :example:`peripherals/ledc/ledc_fade`.
 
+The LEDC basic example: :example:`peripherals/ledc/ledc_basic`.
 
 API Reference
 -------------
 
 .. include-build-file:: inc/ledc.inc
 .. include-build-file:: inc/ledc_types.inc
-

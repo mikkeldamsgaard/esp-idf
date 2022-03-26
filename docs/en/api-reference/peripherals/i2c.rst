@@ -1,13 +1,7 @@
-I2C Driver
-==========
+Inter-Integrated Circuit (I2C)
+==============================
 
 :link_to_translation:`zh_CN:[中文]`
-
-.. only:: esp32c3
-
-    .. warning::
-
-        This document is not updated for ESP32-C3 yet.
 
 Overview
 --------
@@ -108,7 +102,7 @@ At this stage, :cpp:func:`i2c_param_config` also sets a few other I2C configurat
 Source Clock Configuration
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-**Clock sources allocator** is added for supporting different clock sources (Master only). The clock allocator will choose one clock source that meets all the requirements of frequency and capability (as requested in :cpp:member:`i2c_config_t::clk_flags`).
+**Clock sources allocator** is added for supporting different clock sources. The clock allocator will choose one clock source that meets all the requirements of frequency and capability (as requested in :cpp:member:`i2c_config_t::clk_flags`).
 
 When :cpp:member:`i2c_config_t::clk_flags` is 0, the clock allocator will select only according to the desired frequency. If no special capabilities are needed, such as APB, you can configure the clock allocator to select the source clock only according to the desired frequency. For this, set :cpp:member:`i2c_config_t::clk_flags` to 0. For clock characteristics, see the table below.
 
@@ -154,6 +148,25 @@ When :cpp:member:`i2c_config_t::clk_flags` is 0, the clock allocator will select
     1. :c:macro:`I2C_SCLK_SRC_FLAG_AWARE_DFS`: Clock's baud rate will not change while APB clock is changing.
     2. :c:macro:`I2C_SCLK_SRC_FLAG_LIGHT_SLEEP`: It supports Light-sleep mode, which APB clock cannot do.
 
+.. only:: esp32s3
+
+    .. list-table:: Characteristics of {IDF_TARGET_NAME} clock sources
+       :widths: 5 5 50 20
+       :header-rows: 1
+
+       * - Clock name
+         - Clock frequency
+         - MAX freq for SCL
+         - Clock capabilities
+       * - XTAL clock
+         - 40 MHz
+         - 2 MHz
+         - /
+       * - RTC clock
+         - 20 MHz
+         - 1 MHz
+         - :c:macro:`I2C_SCLK_SRC_FLAG_AWARE_DFS`, :c:macro:`I2C_SCLK_SRC_FLAG_LIGHT_SLEEP`
+
 .. only:: esp32c3
 
     .. list-table:: Characteristics of {IDF_TARGET_NAME} clock sources
@@ -193,8 +206,7 @@ After the I2C driver is configured, install it by calling the function :cpp:func
 - Port number, one of the two port numbers from :cpp:type:`i2c_port_t`
 - Master or slave, selected from :cpp:type:`i2c_mode_t`
 - (Slave only) Size of buffers to allocate for sending and receiving data. As I2C is a master-centric bus, data can only go from the slave to the master at the master's request. Therefore, the slave will usually have a send buffer where the slave application writes data. The data remains in the send buffer to be read by the master at the master's own discretion.
-- Flags for allocating the interrupt (see ESP_INTR_FLAG_* values in :component_file:`esp_system/include/esp_intr_alloc.h`)
-
+- Flags for allocating the interrupt (see ESP_INTR_FLAG_* values in :component_file:`esp_hw_support/include/esp_intr_alloc.h`)
 
 .. _i2c-api-master-mode:
 

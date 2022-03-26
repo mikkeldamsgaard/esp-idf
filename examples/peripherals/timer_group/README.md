@@ -15,8 +15,7 @@ Run `idf.py -p PORT flash monitor` to build, flash and monitor the project.
 
 (To exit the serial monitor, type ``Ctrl-]``.)
 
-See the [Getting Started Guide](https://docs.espressif.com/projects/esp-idf/en/latest/get-started/index.html) for full steps to configure and use ESP-IDF to build projects.
-
+See the [ESP-IDF Getting Started Guide](https://idf.espressif.com/) for all the steps to configure and use the ESP-IDF to build projects.
 ## Example Output
 
 ```
@@ -57,4 +56,4 @@ Time   : 0.00398480 s
 
 ## Troubleshooting
 
-For any technical queries, please open an [issue] (https://github.com/espressif/esp-idf/issues) on GitHub. We will get back to you soon.
+For any technical queries, please open an [issue](https://github.com/espressif/esp-idf/issues) on GitHub. We will get back to you soon.

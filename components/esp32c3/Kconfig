@@ -48,50 +48,6 @@ menu "ESP32C3-Specific"
         default 2 if ESP32C3_REV_MIN_2
         default 3 if ESP32C3_REV_MIN_3
 
-    choice ESP32C3_UNIVERSAL_MAC_ADDRESSES
-        bool "Number of universally administered (by IEEE) MAC address"
-        default ESP32C3_UNIVERSAL_MAC_ADDRESSES_FOUR
-        help
-            Configure the number of universally administered (by IEEE) MAC addresses.
-
-            During initialization, MAC addresses for each network interface are generated or derived from a
-            single base MAC address.
-
-            If the number of universal MAC addresses is four, all four interfaces (WiFi station, WiFi softap,
-            Bluetooth and Ethernet) receive a universally administered MAC address. These are generated
-            sequentially by adding 0, 1, 2 and 3 (respectively) to the final octet of the base MAC address.
-
-            If the number of universal MAC addresses is two, only two interfaces (WiFi station and Bluetooth)
-            receive a universally administered MAC address. These are generated sequentially by adding 0
-            and 1 (respectively) to the base MAC address. The remaining two interfaces (WiFi softap and Ethernet)
-            receive local MAC addresses. These are derived from the universal WiFi station and Bluetooth MAC
-            addresses, respectively.
-
-            When using the default (Espressif-assigned) base MAC address, either setting can be used. When using
-            a custom universal MAC address range, the correct setting will depend on the allocation of MAC
-            addresses in this range (either 2 or 4 per device.)
-
-            Note that ESP32-C3 has no integrated Ethernet MAC. Although it's possible to use the esp_read_mac()
-            API to return a MAC for Ethernet, this can only be used with an external MAC peripheral.
-
-
-        config ESP32C3_UNIVERSAL_MAC_ADDRESSES_TWO
-            bool "Two"
-            select ESP_MAC_ADDR_UNIVERSE_WIFI_STA
-            select ESP_MAC_ADDR_UNIVERSE_BT
-        config ESP32C3_UNIVERSAL_MAC_ADDRESSES_FOUR
-            bool "Four"
-            select ESP_MAC_ADDR_UNIVERSE_WIFI_STA
-            select ESP_MAC_ADDR_UNIVERSE_WIFI_AP
-            select ESP_MAC_ADDR_UNIVERSE_BT
-            select ESP_MAC_ADDR_UNIVERSE_ETH
-    endchoice
-
-    config ESP32C3_UNIVERSAL_MAC_ADDRESSES
-        int
-        default 2 if ESP32C3_UNIVERSAL_MAC_ADDRESSES_TWO
-        default 4 if ESP32C3_UNIVERSAL_MAC_ADDRESSES_FOUR
-
     config ESP32C3_DEBUG_OCDAWARE
         bool "Make exception and panic handlers JTAG/OCD aware"
         default y
@@ -100,16 +56,9 @@ menu "ESP32C3-Specific"
             The FreeRTOS panic and unhandled exception handers can detect a JTAG OCD debugger and
             instead of panicking, have the debugger stop on the offending instruction.
 
-    config ESP32C3_DEBUG_STUBS_ENABLE
-        bool "OpenOCD debug stubs"
-        default COMPILER_OPTIMIZATION_LEVEL_DEBUG
-        depends on !ESP32C3_TRAX
-        help
-            Debug stubs are used by OpenOCD to execute pre-compiled onboard code which does some useful debugging,
-            e.g. GCOV data dump.
-
     config ESP32C3_BROWNOUT_DET
         bool "Hardware brownout detect & reset"
+        depends on !IDF_ENV_FPGA
         default y
         help
             The ESP32-C3 has a built-in brownout detector which can detect if the voltage is lower than
@@ -200,6 +149,7 @@ menu "ESP32C3-Specific"
             select ESP_SYSTEM_RTC_EXT_XTAL
         config ESP32C3_RTC_CLK_SRC_EXT_OSC
             bool "External 32kHz oscillator at 32K_XP pin"
+            select ESP_SYSTEM_RTC_EXT_OSC
         config ESP32C3_RTC_CLK_SRC_INT_8MD256
             bool "Internal 8MHz oscillator, divided by 256 (~32kHz)"
     endchoice
@@ -208,7 +158,8 @@ menu "ESP32C3-Specific"
         int "Number of cycles for RTC_SLOW_CLK calibration"
         default 3000 if ESP32C3_RTC_CLK_SRC_EXT_CRYS || ESP32C3_RTC_CLK_SRC_EXT_OSC || ESP32C3_RTC_CLK_SRC_INT_8MD256
         default 1024 if ESP32C3_RTC_CLK_SRC_INT_RC
-        range 0 125000
+        range 0 27000 if ESP32C3_RTC_CLK_SRC_EXT_CRYS || ESP32C3_RTC_CLK_SRC_EXT_OSC || ESP32C3_RTC_CLK_SRC_INT_8MD256
+        range 0 32766 if ESP32C3_RTC_CLK_SRC_INT_RC
         help
             When the startup code initializes RTC_SLOW_CLK, it can perform
             calibration by comparing the RTC_SLOW_CLK frequency with main XTAL
@@ -232,24 +183,5 @@ menu "ESP32C3-Specific"
         help
             If enabled, this disables the linking of binary libraries in the application build. Note
             that after enabling this Wi-Fi/Bluetooth will not work.
-
-    config ESP32C3_LIGHTSLEEP_GPIO_RESET_WORKAROUND
-        bool "light sleep GPIO reset workaround"
-        default y
-        select PM_SLP_DISABLE_GPIO if FREERTOS_USE_TICKLESS_IDLE
-        help
-            ESP32C3 will reset at wake-up if GPIO is received a small electrostatic pulse during
-            light sleep, with specific condition
-
-            - GPIO needs to be configured as input-mode only
-            - The pin receives a small electrostatic pulse, and reset occurs when the pulse
-              voltage is higher than 6 V
-
-            For GPIO set to input mode only, it is not a good practice to leave it open/floating,
-            The hardware design needs to controlled it with determined supply or ground voltage
-            is necessary.
-
-            This option provides a software workaround for this issue. Configure to isolate all
-            GPIO pins in sleep state.
 
 endmenu  # ESP32C3-Specific

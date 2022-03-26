@@ -1,10 +1,16 @@
 idf_build_get_property(idf_target IDF_TARGET)
 idf_build_get_property(python PYTHON)
 
+set(priv_requires soc esp_hw_support)
+
+if(NOT BOOTLOADER_BUILD)
+    list(APPEND priv_requires esp_pm)
+endif()
+
 idf_component_register(SRCS "esp_crt_bundle/esp_crt_bundle.c"
     INCLUDE_DIRS "port/include" "mbedtls/include" "esp_crt_bundle/include"
     REQUIRES lwip
-    PRIV_REQUIRES esp_pm soc
+    PRIV_REQUIRES "${priv_requires}"
     )
 
 if(CONFIG_MBEDTLS_CERTIFICATE_BUNDLE)
@@ -64,6 +70,20 @@ add_subdirectory(mbedtls)
 get_target_property(src_tls mbedtls SOURCES)
 list(REMOVE_ITEM src_tls net_sockets.c)
 set_property(TARGET mbedtls PROPERTY SOURCES ${src_tls})
+
+if(CONFIG_MBEDTLS_SSL_PROTO_GMTSSL1_1)
+get_target_property(src_tls mbedtls SOURCES)
+list(REMOVE_ITEM src_tls ssl_ciphersuites.c ssl_cli.c ssl_tls.c)
+set_property(TARGET mbedtls PROPERTY SOURCES ${src_tls})
+
+get_target_property(src_crypto mbedcrypto SOURCES)
+list(REMOVE_ITEM src_crypto cipher_wrap.c ecdsa.c ecp.c ecp_curves.c oid.c pk_wrap.c)
+set_property(TARGET mbedcrypto PROPERTY SOURCES ${src_crypto})
+
+get_target_property(src_x509 mbedx509 SOURCES)
+list(REMOVE_ITEM src_x509 x509_crt.c)
+set_property(TARGET mbedx509 PROPERTY SOURCES ${src_x509})
+endif()
 
 set(mbedtls_targets mbedtls mbedcrypto mbedx509)
 
@@ -178,11 +198,9 @@ if(CONFIG_MBEDTLS_DYNAMIC_BUFFER)
     endforeach()
 endif()
 
-if(CONFIG_MBEDTLS_HARDWARE_MPI)
-    target_link_libraries(${COMPONENT_LIB} INTERFACE "-Wl,--wrap=mbedtls_mpi_exp_mod")
-endif()
-
 set_property(TARGET mbedcrypto APPEND PROPERTY LINK_INTERFACE_LIBRARIES mbedtls)
+set_property(TARGET mbedcrypto APPEND PROPERTY LINK_LIBRARIES idf::driver idf::${target})
+set_property(TARGET mbedcrypto APPEND PROPERTY INTERFACE_LINK_LIBRARIES idf::driver idf::${target})
 
 # Link mbedtls libraries to component library
 target_link_libraries(${COMPONENT_LIB} PUBLIC ${mbedtls_targets})

@@ -5,9 +5,25 @@
 
 COMPONENT_ADD_INCLUDEDIRS := port/include mbedtls/include esp_crt_bundle/include
 
+COMPONENT_PRIV_INCLUDEDIRS := mbedtls/library
+
 COMPONENT_SRCDIRS := mbedtls/library port port/$(IDF_TARGET) port/sha port/sha/parallel_engine port/aes port/aes/block port/md esp_crt_bundle
 
 COMPONENT_OBJEXCLUDE := mbedtls/library/net_sockets.o
+
+ifdef CONFIG_MBEDTLS_SSL_PROTO_GMTSSL1_1
+COMPONENT_OBJEXCLUDE += \
+mbedtls/library/ssl_ciphersuites.o \
+mbedtls/library/ecp.o \
+mbedtls/library/cipher_wrap.o \
+mbedtls/library/oid.o \
+mbedtls/library/ecp_curves.o \
+mbedtls/library/pk_wrap.o \
+mbedtls/library/ecdsa.o \
+mbedtls/library/x509_crt.o \
+mbedtls/library/ssl_tls.o \
+mbedtls/library/ssl_cli.o
+endif
 
 COMPONENT_SUBMODULES += mbedtls
 
@@ -73,10 +89,6 @@ WRAP_FUNCTIONS = mbedtls_ssl_handshake_client_step \
                  mbedtls_ssl_close_notify
 
 COMPONENT_SRCDIRS += port/dynamic
-endif
-
-ifdef CONFIG_MBEDTLS_HARDWARE_MPI
-WRAP_FUNCTIONS += mbedtls_mpi_exp_mod
 endif
 
 ifneq ($(origin WRAP_FUNCTIONS),undefined)

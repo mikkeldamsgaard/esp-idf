@@ -42,6 +42,8 @@ Description of Components
 
     ESP32-C3-DevKitM-1 - front
 
+The key components of the board are described in a counter-clockwise direction.
+
 .. list-table::
    :widths: 30 70
    :header-rows: 1
@@ -54,7 +56,7 @@ Description of Components
      - Power regulator that converts a 5 V supply into a 3.3 V output.
    * - 5 V Power On LED
      - Turns on when the USB power is connected to the board.
-   * - I/O Connector
+   * - Pin Headers
      - All available GPIO pins (except for the SPI bus for flash) are broken out to the pin headers on the board. For details, please see :ref:`user-guide-c3-devkitm-1-v1-header-blocks`.
    * - Boot Button
      - Download button. Holding down **Boot** and then pressing **Reset** initiates Firmware Download mode for downloading firmware through the serial port.
@@ -62,10 +64,10 @@ Description of Components
      - USB interface. Power supply for the board as well as the communication interface between a computer and the ESP32-C3FN4 chip.
    * - Reset Button
      - Press this button to restart the system.
-   * - USB to UART Bridge
+   * - USB-to-UART Bridge
      - Single USB-UART bridge chip provides transfer rates up to 3 Mbps.
    * - RGB LED
-     - Addressable RGB LED (WS2812), driven by GPIO8.
+     - Addressable RGB LED, driven by GPIO8.
 
 
 Start Application Development
@@ -79,6 +81,10 @@ Required Hardware
 - ESP32-C3-DevKitM-1  
 - USB 2.0 cable (Standard-A to Micro-B)
 - Computer running Windows, Linux, or macOS
+
+.. note::
+
+  Be sure to use an appropriate USB cable. Some cables are for charging only and do not provide the needed data lines nor work for programming the boards.
 
 Software Setup
 ^^^^^^^^^^^^^^
@@ -101,7 +107,7 @@ Wholesale Orders
 
 If you order in bulk, the boards come in large cardboard boxes.
 
-For wholesale orders, please check `Espressif Product Ordering Information <https://www.espressif.com/sites/default/files/documentation/espressif_products_ordering_information_en.pdf>`_ (PDF).
+For wholesale orders, please go to https://www.espressif.com/en/contact-us/sales-questions.
 
 Hardware Reference
 ==================
@@ -124,11 +130,11 @@ Power Supply Options
 
 There are three mutually exclusive ways to provide power to the board:
 
-- Micro-USB port, default power supply
+- Micro-USB Port, default power supply
 - 5V and GND pin headers
 - 3V3 and GND pin headers
 
-It is recommended to use the first option: micro-USB port.
+It is recommended to use the first option: Micro-USB Port.
 
 .. _user-guide-c3-devkitm-1-v1-header-blocks:
 
@@ -176,19 +182,19 @@ No.  Name  Type [1]_   Function
 10   IO5   I/O/T       GPIO5, ADC2_CH0, FSPIWP, MTDI
 11   IO4   I/O/T       GPIO4, ADC1_CH4, FSPIHD, MTMS
 12   GND   G           Ground
-13   IO18  I/O/T       GPIO18
-14   IO19  I/O/T       GPIO19
+13   IO18  I/O/T       GPIO18, USB_D-
+14   IO19  I/O/T       GPIO19, USB_D+
 15   GND   G           Ground
 ===  ====  ==========  ====================================
 
 .. [1] P: Power supply; I: Input; O: Output; T: High impedance.
-.. [2] GPIO2, GPIO8, and GPIO9 are strapping pins of the ESP32-C3FN4 chip. During the chip's system reset, the latches of the strapping pins sample the voltage level as strapping bits, and hold these bits until the chip is powered down or shut down. For description and application of strapping pins, please refer to Section Strapping Pins in `ESP32-C3 Datasheet`_.
+.. [2] GPIO2, GPIO8, and GPIO9 are strapping pins of the ESP32-C3FN4 chip. These pins are used to control several chip functions depending on binary voltage values applied to the pins during chip power-up or system reset. For description and application of the strapping pins, please refer to Section Strapping Pins in `ESP32-C3 Datasheet`_.
 
 Pin Layout
 ^^^^^^^^^^^
-.. figure:: ../../../_static/esp32-c3-devkitm-1-v1-pinout.png
+.. figure:: ../../../_static/esp32-c3-devkitm-1-v1-pinout.jpg
     :align: center
-    :scale: 100%
+    :scale: 45%
     :alt: ESP32-C3-DevKitM-1 (click to enlarge)
     :figclass: align-center
 
@@ -205,12 +211,15 @@ Related Documents
 * `ESP32-C3 Datasheet`_ (PDF)
 * `ESP32-C3-MINI-1 Datasheet`_ (PDF)
 * `ESP32-C3-DevKitM-1 Schematic`_ (PDF)
-* `ESP32-C3-DevKitM-1 PCB Layout <https://dl.espressif.com/dl/schematics/PCB_ESP32-C3-DEVKITM-1_V1_20200915AA.pdf>`_ (PDF)
-* `ESP32-C3-DevKitM-1 Dimensions <https://dl.espressif.com/dl/schematics/DIMENSION_ESP32-C3-DEVKITM-1_V1_20200915AA.pdf>`_ (PDF)
-* `ESP32-C3-DevKitM-1 Dimensions source file <https://dl.espressif.com/dl/schematics/DIMENSION_ESP32-C3-DEVKITM-1_V1_20200915AA.dxf>`_ (DXF) - You can view it with `Autodesk Viewer <https://viewer.autodesk.com/>`_ online
+* `ESP32-C3-DevKitM-1 PCB Layout`_ (PDF)
+* `ESP32-C3-DevKitM-1 Dimensions`_ (PDF)
+* `ESP32-C3-DevKitM-1 Dimensions source file`_ (DXF) - You can view it with `Autodesk Viewer <https://viewer.autodesk.com/>`_ online
 
 For further design documentation for the board, please contact us at `sales@espressif.com <sales@espressif.com>`_.
 
 .. _ESP32-C3 Datasheet: https://www.espressif.com/sites/default/files/documentation/esp32-c3_datasheet_en.pdf
 .. _ESP32-C3-MINI-1 Datasheet: https://www.espressif.com/sites/default/files/documentation/esp32-c3-mini-1_datasheet_en.pdf
 .. _ESP32-C3-DevKitM-1 Schematic: https://dl.espressif.com/dl/schematics/SCH_ESP32-C3-DEVKITM-1_V1_20200915A.pdf
+.. _ESP32-C3-DevKitM-1 PCB Layout: https://dl.espressif.com/dl/schematics/PCB_ESP32-C3-DEVKITM-1_V1_20200915AA.pdf
+.. _ESP32-C3-DevKitM-1 Dimensions: https://dl.espressif.com/dl/schematics/DIMENSION_ESP32-C3-DEVKITM-1_V1_20200915AA.pdf
+.. _ESP32-C3-DevKitM-1 Dimensions source file: https://dl.espressif.com/dl/schematics/DIMENSION_ESP32-C3-DEVKITM-1_V1_20200915AA.dxf

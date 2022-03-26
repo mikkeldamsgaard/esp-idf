@@ -1,16 +1,8 @@
-// Copyright 2020 Espressif Systems (Shanghai) PTE LTD
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/*
+ * SPDX-FileCopyrightText: 2020-2021 Espressif Systems (Shanghai) CO LTD
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -31,6 +23,7 @@
 #include "soc_log.h"
 #include "rtc_clk_common.h"
 #include "esp_rom_sys.h"
+#include "hal/usb_serial_jtag_ll.h"
 
 static const char *TAG = "rtc_clk";
 
@@ -42,6 +35,7 @@ static const char *TAG = "rtc_clk";
 static int s_cur_pll_freq;
 
 static void rtc_clk_cpu_freq_to_8m(void);
+static bool rtc_clk_set_bbpll_always_on(void);
 
 void rtc_clk_32k_enable_internal(x32k_config_t cfg)
 {
@@ -146,7 +140,7 @@ rtc_slow_freq_t rtc_clk_slow_freq_get(void)
 uint32_t rtc_clk_slow_freq_get_hz(void)
 {
     switch (rtc_clk_slow_freq_get()) {
-    case RTC_SLOW_FREQ_RTC: return RTC_SLOW_CLK_FREQ_90K;
+    case RTC_SLOW_FREQ_RTC: return RTC_SLOW_CLK_FREQ_150K;
     case RTC_SLOW_FREQ_32K_XTAL: return RTC_SLOW_CLK_FREQ_32K;
     case RTC_SLOW_FREQ_8MD256: return RTC_SLOW_CLK_FREQ_8MD256;
     }
@@ -342,7 +336,8 @@ void rtc_clk_cpu_freq_set_config(const rtc_cpu_freq_config_t *config)
     uint32_t soc_clk_sel = REG_GET_FIELD(SYSTEM_SYSCLK_CONF_REG, SYSTEM_SOC_CLK_SEL);
     if (config->source == RTC_CPU_FREQ_SRC_XTAL) {
         rtc_clk_cpu_freq_to_xtal(config->freq_mhz, config->div);
-        if (soc_clk_sel == DPORT_SOC_CLK_SEL_PLL) {
+        if ((soc_clk_sel == DPORT_SOC_CLK_SEL_PLL) && !rtc_clk_set_bbpll_always_on()) {
+            // We don't turn off the bbpll if some consumers only depends on bbpll
             rtc_clk_bbpll_disable();
         }
     } else if (config->source == RTC_CPU_FREQ_SRC_PLL) {
@@ -353,7 +348,8 @@ void rtc_clk_cpu_freq_set_config(const rtc_cpu_freq_config_t *config)
         rtc_clk_cpu_freq_to_pll_mhz(config->freq_mhz);
     } else if (config->source == RTC_CPU_FREQ_SRC_8M) {
         rtc_clk_cpu_freq_to_8m();
-        if (soc_clk_sel == DPORT_SOC_CLK_SEL_PLL) {
+        if ((soc_clk_sel == DPORT_SOC_CLK_SEL_PLL) && !rtc_clk_set_bbpll_always_on()) {
+            // We don't turn off the bbpll if some consumers only depends on bbpll
             rtc_clk_bbpll_disable();
         }
     }
@@ -428,7 +424,10 @@ void rtc_clk_cpu_freq_set_xtal(void)
     int freq_mhz = (int) rtc_clk_xtal_freq_get();
 
     rtc_clk_cpu_freq_to_xtal(freq_mhz, 1);
-    rtc_clk_bbpll_disable();
+    // We don't turn off the bbpll if some consumers only depends on bbpll
+    if (!rtc_clk_set_bbpll_always_on()) {
+        rtc_clk_bbpll_disable();
+    }
 }
 
 /**
@@ -507,6 +506,21 @@ void rtc_dig_clk8m_disable(void)
 {
     CLEAR_PERI_REG_MASK(RTC_CNTL_CLK_CONF_REG, RTC_CNTL_DIG_CLK8M_EN_M);
     esp_rom_delay_us(DELAY_RTC_CLK_SWITCH);
+}
+
+static bool rtc_clk_set_bbpll_always_on(void)
+{
+    /* We just keep the rtc bbpll clock on just under the case that
+    user selects the `RTC_CLOCK_BBPLL_POWER_ON_WITH_USB` as well as
+    the USB_SERIAL_JTAG is connected with PC.
+    */
+    bool is_bbpll_on = false;
+#if CONFIG_RTC_CLOCK_BBPLL_POWER_ON_WITH_USB
+    if (usb_serial_jtag_ll_txfifo_writable() == 1) {
+        is_bbpll_on = true;
+    }
+#endif
+    return is_bbpll_on;
 }
 
 /* Name used in libphy.a:phy_chip_v7.o

@@ -1,21 +1,14 @@
-// Copyright 2019 Espressif Systems (Shanghai) PTE LTD
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/*
+ * SPDX-FileCopyrightText: 2015-2021 Espressif Systems (Shanghai) CO LTD
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 #include <string.h>
 #include <lwip/ip_addr.h>
 #include <lwip/sockets.h>
 
+#include "esp_check.h"
 #include "esp_netif_lwip_internal.h"
 
 #include "esp_netif.h"
@@ -27,6 +20,7 @@
 #include "lwip/dhcp.h"
 #include "lwip/ip_addr.h"
 #include "lwip/ip6_addr.h"
+#include "lwip/mld6.h"
 #include "lwip/nd6.h"
 #include "lwip/priv/tcpip_priv.h"
 #include "lwip/netif.h"
@@ -99,10 +93,12 @@ extern sys_thread_t g_lwip_task;
 
 static const char *TAG = "esp_netif_lwip";
 
-static sys_sem_t api_sync_sem = NULL;
-static sys_sem_t api_lock_sem = NULL;
 static bool tcpip_initialized = false;
 static esp_netif_t *s_last_default_esp_netif = NULL;
+
+#if !LWIP_TCPIP_CORE_LOCKING
+static sys_sem_t api_sync_sem = NULL;
+static sys_sem_t api_lock_sem = NULL;
 
 /**
  * @brief Api callback from tcpip thread used to call esp-netif
@@ -122,6 +118,7 @@ static void esp_netif_api_cb(void *api_msg)
     sys_sem_signal(&api_sync_sem);
 
 }
+#endif
 
 /**
  * @brief Initiates a tcpip remote call if called from another task
@@ -134,6 +131,7 @@ static inline esp_err_t esp_netif_lwip_ipc_call(esp_netif_api_fn fn, esp_netif_t
             .data = data,
             .api_fn = fn
     };
+#if !LWIP_TCPIP_CORE_LOCKING
     if (g_lwip_task != xTaskGetCurrentTaskHandle()) {
         ESP_LOGD(TAG, "check: remote, if=%p fn=%p\n", netif, fn);
         sys_arch_sem_wait(&api_lock_sem, 0);
@@ -141,6 +139,7 @@ static inline esp_err_t esp_netif_lwip_ipc_call(esp_netif_api_fn fn, esp_netif_t
         sys_sem_signal(&api_lock_sem);
         return msg.ret;
     }
+#endif /* !LWIP_TCPIP_CORE_LOCKING */
     ESP_LOGD(TAG, "check: local, if=%p fn=%p\n", netif, fn);
     return fn(&msg);
 }
@@ -176,7 +175,7 @@ static void esp_netif_set_default_netif(esp_netif_t *esp_netif)
         esp_netif_ppp_set_default_netif(esp_netif->netif_handle);
 #endif
     } else {
-        netif_set_default(esp_netif->netif_handle);
+        netif_set_default(esp_netif->lwip_netif);
     }
 }
 
@@ -322,6 +321,7 @@ esp_err_t esp_netif_init(void)
         ESP_LOGD(TAG, "LwIP stack has been initialized");
     }
 
+#if !LWIP_TCPIP_CORE_LOCKING
     if (!api_sync_sem) {
         if (ERR_OK != sys_sem_new(&api_sync_sem, 0)) {
             ESP_LOGE(TAG, "esp netif api sync sem init fail");
@@ -335,6 +335,7 @@ esp_err_t esp_netif_init(void)
             return ESP_FAIL;
         }
     }
+#endif
 
     ESP_LOGD(TAG, "esp-netif has been successfully initialized");
     return ESP_OK;
@@ -777,7 +778,7 @@ esp_err_t esp_netif_start(esp_netif_t *esp_netif)
     if (_IS_NETIF_POINT2POINT_TYPE(esp_netif, PPP_LWIP_NETIF)) {
 #if CONFIG_PPP_SUPPORT
         // No need to start PPP interface in lwip thread
-        esp_err_t ret = esp_netif_start_ppp(esp_netif->related_data);
+        esp_err_t ret = esp_netif_start_ppp(esp_netif);
         if (ret == ESP_OK) {
             esp_netif_update_default_netif(esp_netif, ESP_NETIF_STARTED);
         }
@@ -1880,9 +1881,12 @@ esp_err_t esp_netif_dhcpc_option(esp_netif_t *esp_netif, esp_netif_dhcp_option_m
                     *(uint8_t *)opt_val = dhcp->tries;
                 }
                 break;
+#if ESP_DHCP && !ESP_DHCP_DISABLE_VENDOR_CLASS_IDENTIFIER
+            case ESP_NETIF_VENDOR_SPECIFIC_INFO:
+                return dhcp_get_vendor_specific_information(opt_len, opt_val);
+#endif
             default:
                 return ESP_ERR_ESP_NETIF_INVALID_PARAMS;
-                break;
         }
     } else if (opt_op == ESP_NETIF_OP_SET) {
         if (esp_netif->dhcpc_status == ESP_NETIF_DHCP_STARTED) {
@@ -1894,9 +1898,12 @@ esp_err_t esp_netif_dhcpc_option(esp_netif_t *esp_netif, esp_netif_dhcp_option_m
                     dhcp->tries = *(uint8_t *)opt_val;
                 }
                 break;
+#if ESP_DHCP && !ESP_DHCP_DISABLE_VENDOR_CLASS_IDENTIFIER
+            case ESP_NETIF_VENDOR_CLASS_IDENTIFIER:
+                return dhcp_set_vendor_class_identifier(opt_len, opt_val);
+#endif
             default:
                 return ESP_ERR_ESP_NETIF_INVALID_PARAMS;
-                break;
         }
     } else {
         return ESP_ERR_ESP_NETIF_INVALID_PARAMS;
@@ -1922,5 +1929,96 @@ esp_err_t esp_netif_get_netif_impl_name(esp_netif_t *esp_netif, char* name)
     netif_index_to_name(netif_get_index(esp_netif->lwip_netif), name);
     return ESP_OK;
 }
+
+#if CONFIG_LWIP_IPV6
+
+static esp_err_t esp_netif_join_ip6_multicast_group_api(esp_netif_api_msg_t *msg)
+{
+    esp_ip6_addr_t *addr = (esp_ip6_addr_t *)msg->data;
+    esp_err_t error = ESP_OK;
+    ip6_addr_t ip6addr;
+
+    ESP_LOGD(TAG, "%s esp_netif:%p", __func__, msg->esp_netif);
+    memcpy(ip6addr.addr, addr->addr, sizeof(ip6addr.addr));
+#if LWIP_IPV6_SCOPES
+    ip6addr.zone = 0;
+#endif
+    if (mld6_joingroup_netif(msg->esp_netif->lwip_netif, &ip6addr) != ERR_OK) {
+        error = ESP_ERR_ESP_NETIF_MLD6_FAILED;
+        ESP_LOGE(TAG, "failed to join ip6 multicast group");
+    }
+    return error;
+}
+
+esp_err_t esp_netif_join_ip6_multicast_group(esp_netif_t *esp_netif, const esp_ip6_addr_t *addr)
+    _RUN_IN_LWIP_TASK(esp_netif_join_ip6_multicast_group_api, esp_netif, addr)
+
+static esp_err_t esp_netif_leave_ip6_multicast_group_api(esp_netif_api_msg_t *msg)
+{
+    esp_ip6_addr_t *addr = (esp_ip6_addr_t *)msg->data;
+    ip6_addr_t ip6addr;
+
+    ESP_LOGD(TAG, "%s esp_netif:%p", __func__, msg->esp_netif);
+    memcpy(ip6addr.addr, addr->addr, sizeof(ip6addr.addr));
+#if LWIP_IPV6_SCOPES
+    ip6addr.zone = 0;
+#endif
+    ESP_RETURN_ON_FALSE(mld6_leavegroup_netif(msg->esp_netif->lwip_netif, &ip6addr) != ERR_OK,
+                        ESP_ERR_ESP_NETIF_MLD6_FAILED, TAG, "Failed to leave ip6 multicast group");
+    return ESP_OK;
+}
+
+esp_err_t esp_netif_leave_ip6_multicast_group(esp_netif_t *esp_netif, const esp_ip6_addr_t *addr)
+    _RUN_IN_LWIP_TASK(esp_netif_leave_ip6_multicast_group_api, esp_netif, addr)
+
+static esp_err_t esp_netif_add_ip6_address_api(esp_netif_api_msg_t *msg)
+{
+    ip_event_add_ip6_t *addr = (ip_event_add_ip6_t *)msg->data;
+    ip6_addr_t ip6addr;
+    esp_err_t error = ESP_OK;
+    int8_t index = -1;
+
+    ESP_LOGD(TAG, "%s esp_netif:%p", __func__, msg->esp_netif);
+    memcpy(ip6addr.addr, addr->addr.addr, sizeof(ip6addr.addr));
+#if LWIP_IPV6_SCOPES
+    ip6addr.zone = 0;
+#endif
+    err_t err = netif_add_ip6_address(msg->esp_netif->lwip_netif, &ip6addr, &index);
+    ESP_RETURN_ON_FALSE(err == ERR_OK && index >= 0, ESP_ERR_ESP_NETIF_IP6_ADDR_FAILED, TAG,
+                        "Failed to add ip6 address");
+
+    netif_ip6_addr_set_state(msg->esp_netif->lwip_netif, index,
+                             addr->preferred ? IP6_ADDR_PREFERRED : IP6_ADDR_DEPRECATED);
+    ip_event_got_ip6_t evt = {.esp_netif = msg->esp_netif, .if_index = -1, .ip_index = index};
+    evt.ip6_info.ip = addr->addr;
+    ESP_RETURN_ON_ERROR(esp_event_send_internal(IP_EVENT, IP_EVENT_GOT_IP6, &evt, sizeof(evt), 0), TAG,
+                        "Failed to post IP_EVENT_GOT_IP6");
+    return error;
+}
+
+esp_err_t esp_netif_add_ip6_address(esp_netif_t *esp_netif, const ip_event_add_ip6_t *addr)
+    _RUN_IN_LWIP_TASK(esp_netif_add_ip6_address_api, esp_netif, addr)
+
+static esp_err_t esp_netif_remove_ip6_address_api(esp_netif_api_msg_t *msg)
+{
+    esp_ip6_addr_t *addr = (esp_ip6_addr_t *)msg->data;
+    ip6_addr_t ip6addr;
+
+    ESP_LOGD(TAG, "%s esp_netif:%p", __func__, msg->esp_netif);
+    memcpy(ip6addr.addr, addr->addr, sizeof(ip6addr.addr));
+#if LWIP_IPV6_SCOPES
+    ip6addr.zone = 0;
+#endif
+    int8_t index = netif_get_ip6_addr_match(msg->esp_netif->lwip_netif, &ip6addr);
+    if (index != -1) {
+        netif_ip6_addr_set_state(msg->esp_netif->lwip_netif, index, IP6_ADDR_INVALID);
+    }
+    return ESP_OK;
+}
+
+esp_err_t esp_netif_remove_ip6_address(esp_netif_t *esp_netif, const esp_ip6_addr_t *addr)
+    _RUN_IN_LWIP_TASK(esp_netif_remove_ip6_address_api, esp_netif, addr)
+
+#endif // CONFIG_LWIP_IPV6
 
 #endif /* CONFIG_ESP_NETIF_TCPIP_LWIP */

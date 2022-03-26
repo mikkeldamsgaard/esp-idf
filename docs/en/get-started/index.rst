@@ -2,20 +2,18 @@
 Get Started
 ***********
 
-{IDF_TARGET_CORE_NUM:default="2", esp32="2", esp32s2="1", esp32c3="1"}
+{IDF_TARGET_CORE_NUM:default="2", esp32s2="1", esp32c3="1"}
 
-{IDF_TARGET_FEATURES:default="WiFi/BT/BLE, silicon revision 1, 2MB external flash", esp32="WiFi/BT/BLE, silicon revision 1, 2MB external flash", esp32s2="WiFi, silicon revision 0, 2MB external flash", esp32c3="WiFi/BLE, silicon revision 0, 2MB external flash"}
+{IDF_TARGET_FEATURES:default="WiFi/BT/BLE, silicon revision 1, 2MB external flash", esp32="WiFi/BT/BLE, silicon revision 1, 2MB external flash", esp32s2="WiFi, silicon revision 0, 2MB external flash", esp32s3="This is esp32s3 chip with 2 CPU core(s), WiFi/BLE, silicon revision 0, 2MB external flash", esp32c3="WiFi/BLE, silicon revision 0, 2MB external flash"}
 
-{IDF_TARGET_HEAP_SIZE:default="298968", esp32="298968", esp32s2="253900", esp32c3="337332"}
+{IDF_TARGET_HEAP_SIZE:default="298968", esp32="298968", esp32s2="253900", esp32s3="390684", esp32c3="337332"}
 
 
 :link_to_translation:`zh_CN:[中文]`
 
 .. Please keep README.md in sync with these instructions.
 
-This document is intended to help you set up the software development environment for the hardware based on the {IDF_TARGET_NAME} chip by Espressif.
-
-After that, a simple example will show you how to use ESP-IDF (Espressif IoT Development Framework) for menu configuration, then for building and flashing firmware onto an {IDF_TARGET_NAME} board.
+This document is intended to help you set up the software development environment for the hardware based on the {IDF_TARGET_NAME} chip by Espressif. After that, a simple example will show you how to use ESP-IDF (Espressif IoT Development Framework) for menu configuration, then for building and flashing firmware onto an {IDF_TARGET_NAME} board.
 
 .. include-build-file:: inc/version-note.inc
 
@@ -32,7 +30,6 @@ Introduction
     * Ultra Low Power co-processor
     * Multiple peripherals
 
-
 .. only:: esp32s2
 
     * Wi-Fi (2.4 GHz band)
@@ -41,6 +38,17 @@ Introduction
     * Multiple peripherals
     * Built-in security hardware
     * USB OTG interface
+
+.. only:: esp32s3
+
+    * Wi-Fi (2.4 GHz band)
+    * Bluetooth Low Energy
+    * Dual high performance Xtensa® 32-bit LX7 CPU cores
+    * Ultra Low Power co-processor running either RISC-V or FSM core
+    * Multiple peripherals
+    * Built-in security hardware
+    * USB OTG interface
+    * USB Serial/JTAG Controller
 
 .. only:: esp32c3
 
@@ -53,6 +61,7 @@ Introduction
 Powered by 40 nm technology, {IDF_TARGET_NAME} provides a robust, highly integrated platform, which helps meet the continuous demands for efficient power usage, compact design, security, high performance, and reliability.
 
 Espressif provides basic hardware and software resources to help application developers realize their ideas using the {IDF_TARGET_NAME} series hardware. The software development framework by Espressif is intended for development of Internet-of-Things (IoT) applications with Wi-Fi, Bluetooth, power management and several other system features.
+
 
 What You Need
 =============
@@ -120,7 +129,16 @@ If you have one of {IDF_TARGET_NAME} development boards listed below, you can cl
 
         ESP32-C3-DevKitM-1 <../hw-reference/esp32c3/user-guide-devkitm-1>
         ESP32-C3-DevKitC-02 <../hw-reference/esp32c3/user-guide-devkitc-02>
-        
+
+
+.. only:: esp32s3
+
+    .. toctree::
+        :maxdepth: 1
+
+        ESP32-S3-DevKitC-1 <../hw-reference/esp32s3/user-guide-devkitc-1>
+
+
 .. _get-started-step-by-step:
 
 Installation Step by Step
@@ -230,14 +248,14 @@ If you want to install the tools without the help of ESP-IDF Tools Installer, op
 .. code-block:: batch
 
     cd %userprofile%\esp\esp-idf
-    install.bat
+    install.bat {IDF_TARGET_PATH_NAME}
 
 or with Windows PowerShell
 
 .. code-block:: powershell
 
     cd ~/esp/esp-idf
-    ./install.ps1
+    ./install.ps1 {IDF_TARGET_PATH_NAME}
 
 Linux and macOS
 ~~~~~~~~~~~~~~~
@@ -245,7 +263,18 @@ Linux and macOS
 .. code-block:: bash
 
     cd ~/esp/esp-idf
-    ./install.sh
+    ./install.sh {IDF_TARGET_PATH_NAME}
+
+or with Fish shell
+
+.. code-block:: fish
+
+    cd ~/esp/esp-idf
+    ./install.fish {IDF_TARGET_PATH_NAME}
+
+.. note::
+    To install tools for multiple targets you can specify those targets at once. For example: ``./install.sh esp32,esp32c3,esp32s3``.
+    To install tools for all supported targets, run the script without specifying targets ``./install.sh`` or use ``./install.sh all``.
 
 Alternative File Downloads
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -257,13 +286,7 @@ The tools installer downloads a number of files attached to GitHub Releases. If 
 Windows
 -------
 
-To prefer the Espressif download server when running the ESP-IDF Tools Installer or installing tools from the command line, open the System control panel, then click on Advanced Settings. Add a new Environment Variable (of type either User or System) with the name ``IDF_GITHUB_ASSETS`` and value ``dl.espressif.com/github_assets``. Click OK once done.
-
-If the command line window or ESP-IDF Tools Installer window was already open before you added the new environment variable, you will need to close and reopen it.
-
-While this environment variable is still set, the ESP-IDF Tools Installer and the command line installer will prefer the Espressif download server.
-
-.. Once the ESP-IDF Tools Installer binary is updated to include the checkbox, the above can be rewritten to refer to it
+To prefer the Espressif download server when running the ESP-IDF Tools Installer, mark the **Use Espressif download mirror instead of GitHub** in the screen **Select Components** section **Optimization**.
 
 Linux and macOS
 ---------------
@@ -366,9 +389,7 @@ Windows
     cd %userprofile%\esp
     xcopy /e /i %IDF_PATH%\examples\get-started\hello_world hello_world
 
-There is a range of example projects in the :idf:`examples` directory in ESP-IDF. You can copy any project in the same way as presented above and run it.
-
-It is also possible to build examples in-place, without copying them first.
+There is a range of example projects in the :idf:`examples` directory in ESP-IDF. You can copy any project in the same way as presented above and run it. It is also possible to build examples in-place, without copying them first.
 
 .. important::
 
@@ -436,12 +457,11 @@ You are using this menu to set up project specific variables, e.g. Wi-Fi network
 
     .. attention::
 
-        If you use ESP32-DevKitC board with the **ESP32-SOLO-1** module, enable single core mode (:ref:`CONFIG_FREERTOS_UNICORE`) in menuconfig before flashing examples.
+        If you use ESP32-DevKitC board with the **ESP32-SOLO-1** module, or ESP32-DevKitM-1 board with the **ESP32-MIN1-1(1U)** module, enable single core mode (:ref:`CONFIG_FREERTOS_UNICORE`) in menuconfig before flashing examples.
 
 .. note::
 
-    The colors of the menu could be different in your terminal. You can change the appearance with the option
-    ``--style``. Please run ``idf.py menuconfig --help`` for further information.
+    The colors of the menu could be different in your terminal. You can change the appearance with the option ``--style``. Please run ``idf.py menuconfig --help`` for further information.
 
 .. _get-started-build:
 
@@ -469,11 +489,11 @@ This command will compile the application and all ESP-IDF components, then it wi
 
    ... (more lines of build system output)
 
-   [527/527] Generating hello-world.bin
+   [527/527] Generating hello_world.bin
    esptool.py v2.3.1
 
    Project build complete. To flash, run this command:
-   ../../../components/esptool_py/esptool/esptool.py -p (PORT) -b 921600 write_flash --flash_mode dio --flash_size detect --flash_freq 40m 0x10000 build/hello-world.bin  build 0x1000 build/bootloader/bootloader.bin 0x8000 build/partition_table/partition-table.bin
+   ../../../components/esptool_py/esptool/esptool.py -p (PORT) -b 921600 write_flash --flash_mode dio --flash_size detect --flash_freq 40m 0x10000 build/hello_world.bin  build 0x1000 build/bootloader/bootloader.bin 0x8000 build/partition_table/partition-table.bin
    or run 'idf.py -p PORT flash'
 
 If there are no errors, the build will finish by generating the firmware binary .bin files.
@@ -484,7 +504,7 @@ If there are no errors, the build will finish by generating the firmware binary 
 Step 9. Flash onto the Device
 =============================
 
-Flash the binaries that you just built (bootloader.bin, partition-table.bin and hello-world.bin) onto your {IDF_TARGET_NAME} board by running:
+Flash the binaries that you just built (bootloader.bin, partition-table.bin and hello_world.bin) onto your {IDF_TARGET_NAME} board by running:
 
 .. code-block:: bash
 
@@ -503,7 +523,7 @@ For more information on idf.py arguments, see :ref:`idf.py`.
 
 Encountered Issues While Flashing?
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-{IDF_TARGET_STRAP_GPIO:default="GPIO0", esp32="GPIO0", esp32s2="GPIO0", esp32c3="GPIO9"}
+{IDF_TARGET_STRAP_GPIO:default="GPIO0", esp32="GPIO0", esp32s2="GPIO0", esp32s3="GPIO0", esp32c3="GPIO9"}
 
 If you run the given command and see errors such as "Failed to connect", there might be several reasons for this. One of the reasons might be issues encountered by ``esptool.py``, the utility that is called by the build system to reset the chip, interact with the ROM bootloader, and flash firmware. One simple solution to try is manual reset described below, and if it does not help you can find more details about possible issues in `Troubleshooting <https://github.com/espressif/esptool#bootloader-wont-respond>`_.
 
@@ -531,7 +551,7 @@ When flashing, you will see the output log similar to the following:
     .. code-block:: none
 
         ...
-        esptool.py --chip esp32 -p /dev/ttyUSB0 -b 460800 --before=default_reset --after=hard_reset write_flash --flash_mode dio --flash_freq 40m --flash_size 2MB 0x8000 partition_table/partition-table.bin 0x1000 bootloader/bootloader.bin 0x10000 hello-world.bin
+        esptool.py --chip esp32 -p /dev/ttyUSB0 -b 460800 --before=default_reset --after=hard_reset write_flash --flash_mode dio --flash_freq 40m --flash_size 2MB 0x8000 partition_table/partition-table.bin 0x1000 bootloader/bootloader.bin 0x10000 hello_world.bin
         esptool.py v3.0-dev
         Serial port /dev/ttyUSB0
         Connecting........_
@@ -571,7 +591,7 @@ When flashing, you will see the output log similar to the following:
     .. code-block:: none
 
         ...
-        esptool.py --chip esp32s2 -p /dev/ttyUSB0 -b 460800 --before=default_reset --after=hard_reset write_flash --flash_mode dio --flash_freq 40m --flash_size 2MB 0x8000 partition_table/partition-table.bin 0x1000 bootloader/bootloader.bin 0x10000 hello-world.bin
+        esptool.py --chip esp32s2 -p /dev/ttyUSB0 -b 460800 --before=default_reset --after=hard_reset write_flash --flash_mode dio --flash_freq 40m --flash_size 2MB 0x8000 partition_table/partition-table.bin 0x1000 bootloader/bootloader.bin 0x10000 hello_world.bin
         esptool.py v3.0-dev
         Serial port /dev/ttyUSB0
         Connecting....
@@ -606,12 +626,57 @@ When flashing, you will see the output log similar to the following:
         Hard resetting via RTS pin...
         Done
 
+.. only:: esp32s3
+
+    .. code-block:: none
+
+        ...
+        esptool.py esp32s3 -p /dev/ttyUSB0 -b 460800 --before=default_reset --after=hard_reset write_flash --flash_mode dio --flash_freq 80m --flash_size 2MB 0x0 bootloader/bootloader.bin 0x10000 hello_world.bin 0x8000 partition_table/partition-table.bin
+        esptool.py v3.2-dev
+        Serial port /dev/ttyUSB0
+        Connecting....
+        Chip is ESP32-S3
+        Features: WiFi, BLE
+        Crystal is 40MHz
+        MAC: 7c:df:a1:e0:00:64
+        Uploading stub...
+        Running stub...
+        Stub running...
+        Changing baud rate to 460800
+        Changed.
+        Configuring flash size...
+        Flash will be erased from 0x00000000 to 0x00004fff...
+        Flash will be erased from 0x00010000 to 0x00039fff...
+        Flash will be erased from 0x00008000 to 0x00008fff...
+        Compressed 18896 bytes to 11758...
+        Writing at 0x00000000... (100 %)
+        Wrote 18896 bytes (11758 compressed) at 0x00000000 in 0.5 seconds (effective 279.9 kbit/s)...
+        Hash of data verified.
+        Compressed 168208 bytes to 88178...
+        Writing at 0x00010000... (16 %)
+        Writing at 0x0001a80f... (33 %)
+        Writing at 0x000201f1... (50 %)
+        Writing at 0x00025dcf... (66 %)
+        Writing at 0x0002d0be... (83 %)
+        Writing at 0x00036c07... (100 %)
+        Wrote 168208 bytes (88178 compressed) at 0x00010000 in 2.4 seconds (effective 569.2 kbit/s)...
+        Hash of data verified.
+        Compressed 3072 bytes to 103...
+        Writing at 0x00008000... (100 %)
+        Wrote 3072 bytes (103 compressed) at 0x00008000 in 0.1 seconds (effective 478.9 kbit/s)...
+        Hash of data verified.
+
+        Leaving...
+        Hard resetting via RTS pin...
+        Done
+
+
 .. only:: esp32c3
 
     .. code-block:: none
 
         ...
-        esptool.py --chip esp32c3 -p /dev/ttyUSB0 -b 460800 --before=default_reset --after=hard_reset write_flash --flash_mode dio --flash_freq 80m --flash_size 2MB 0x8000 partition_table/partition-table.bin 0x0 bootloader/bootloader.bin 0x10000 hello-world.bin
+        esptool.py --chip esp32c3 -p /dev/ttyUSB0 -b 460800 --before=default_reset --after=hard_reset write_flash --flash_mode dio --flash_freq 80m --flash_size 2MB 0x8000 partition_table/partition-table.bin 0x0 bootloader/bootloader.bin 0x10000 hello_world.bin
         esptool.py v3.0
         Serial port /dev/ttyUSB0
         Connecting....
@@ -663,7 +728,7 @@ This command launches the :doc:`IDF Monitor <../api-guides/tools/idf-monitor>` a
 
     $ idf.py -p /dev/ttyUSB0 monitor
     Running idf_monitor in directory [...]/esp/hello_world/build
-    Executing "python [...]/esp-idf/tools/idf_monitor.py -b 115200 [...]/esp/hello_world/build/hello-world.elf"...
+    Executing "python [...]/esp-idf/tools/idf_monitor.py -b 115200 [...]/esp/hello_world/build/hello_world.elf"...
     --- idf_monitor on /dev/ttyUSB0 115200 ---
     --- Quit: Ctrl+] | Menu: Ctrl+T | Help: Ctrl+T followed by Ctrl+H ---
     ets Jun  8 2016 00:22:57
@@ -708,6 +773,12 @@ To exit IDF monitor use the shortcut ``Ctrl+]``.
     You can combine building, flashing and monitoring into one step by running::
 
        idf.py -p PORT flash monitor
+
+.. only:: esp32s3
+
+    .. note::
+
+        If a board with Octal Flash resets before the second-stage bootloader, please refer to :ref:`Octal Flash Error Handling <flash-psram-error>`
 
 See also:
 

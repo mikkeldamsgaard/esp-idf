@@ -9,7 +9,9 @@ This note explains various steps which happen before ``app_main`` function of an
 The high level view of startup process is as follows:
 
 1. :ref:`first-stage-bootloader` in ROM loads second-stage bootloader image to RAM (IRAM & DRAM) from flash offset {IDF_TARGET_BOOTLOADER_OFFSET}.
+
 2. :ref:`second-stage-bootloader` loads partition table and main app image from flash. Main app incorporates both RAM segments and read-only segments mapped via flash cache.
+
 3. :ref:`application-startup` executes. At this point the second CPU and RTOS scheduler are started.
 
 This process is explained in detail in the following sections.
@@ -37,15 +39,15 @@ Startup code called from the reset vector determines the boot mode by checking `
 
 .. note::
 
-    During normal boot modes the RTC watchdog is enabled when this happens, so if the process is interrupted or stalled then the watchdog will reset the SOC automatically and repeat the boot process. This may cause the SoC to strap into a new boot mode, if the stapping GPIOs have changed.
+    During normal boot modes the RTC watchdog is enabled when this happens, so if the process is interrupted or stalled then the watchdog will reset the SOC automatically and repeat the boot process. This may cause the SoC to strap into a new boot mode, if the strapping GPIOs have changed.
 
 .. only:: esp32
 
-    Second stage bootloader binary image is loaded from flash starting at address 0x1000. If :doc:`/security/secure-boot-v1` is in use then the first 4kB sector of flash is used to store secure boot IV and digest of the bootloader image. Otherwise, this sector is unused.
+    Second stage bootloader binary image is loaded from flash starting at address 0x1000. If :doc:`/security/secure-boot-v1` is in use then the first 4 kB sector of flash is used to store secure boot IV and digest of the bootloader image. Otherwise, this sector is unused.
 
 .. only:: esp32s2
 
-    Second stage bootloader binary image is loaded from flash starting at address 0x1000. The 4kB sector of flash before this address is unused.
+    Second stage bootloader binary image is loaded from flash starting at address 0x1000. The 4 kB sector of flash before this address is unused.
 
 .. only:: not (esp32 or esp32s2)
 
@@ -108,6 +110,7 @@ This port-layer initialization function initializes the basic C Runtime Environm
    :SOC_SPIRAM_SUPPORTED: - Enable PSRAM if configured.
    - Set the CPU clocks to the frequencies configured for the project.
    :CONFIG_ESP_SYSTEM_MEMPROT_FEATURE: - Initialize memory protection if configured.
+   :esp32: - Reconfigure the main SPI flash based on the app header settings (necessary for compatibility with bootloader versions before ESP-IDF V4.0, see :ref:`bootloader-compatibility`).
    :not CONFIG_FREERTOS_UNICORE: - If the app is configured to run on multiple cores, start the other core and wait for it to initialize as well (inside the similar "port layer" initialization function ``call_start_cpu1``).
 
 .. only:: not CONFIG_FREERTOS_UNICORE
@@ -149,6 +152,10 @@ After all other components are initialized, the main task is created and the Fre
 After doing some more initialization tasks (that require the scheduler to have started), the main task runs the application-provided function ``app_main`` in the firmware.
 
 The main task that runs ``app_main`` has a fixed RTOS priority (one higher than the minimum) and a :ref:`configurable stack size <CONFIG_ESP_MAIN_TASK_STACK_SIZE>`.
+
+.. only:: not CONFIG_FREERTOS_UNICORE
+
+   The main task core affinity is also configurable: :ref:`CONFIG_ESP_MAIN_TASK_AFFINITY`.
 
 Unlike normal FreeRTOS tasks (or embedded C ``main`` functions), the ``app_main`` task is allowed to return. If this happens, The task is cleaned up and the system will continue running with other RTOS tasks scheduled normally. Therefore, it is possible to implement ``app_main`` as either a function that creates other application tasks and then returns, or as a main application task itself.
 

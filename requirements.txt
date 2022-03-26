@@ -6,11 +6,18 @@ setuptools>=21
 # Please keep it as the first item of this list. Version 21 is required to handle PEP 508 environment markers.
 #
 click>=7.0
-pyserial>=3.0
+pyserial>=3.3
 future>=0.15.2
+
 cryptography>=2.1.4
+--only-binary cryptography
+# Only binary for cryptography is here to make it work on ARMv7 architecture
+# We do have cryptography binary on https://dl.espressif.com/pypi for ARM
+# On https://pypi.org/ are no ARM binaries as standard now
+
 pyparsing>=2.0.3,<2.4.0
 pyelftools>=0.22
+idf-component-manager~=1.0
 
 gdbgui==0.13.2.0
 # 0.13.2.1 supports Python 3.6+ only

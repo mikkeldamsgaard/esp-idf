@@ -1,16 +1,8 @@
-// Copyright 2015-2020 Espressif Systems (Shanghai) PTE LTD
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/*
+ * SPDX-FileCopyrightText: 2015-2021 Espressif Systems (Shanghai) CO LTD
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 #pragma once
 
@@ -29,6 +21,8 @@ extern "C" {
 static inline uint32_t periph_ll_get_clk_en_mask(periph_module_t periph)
 {
     switch (periph) {
+    case PERIPH_SARADC_MODULE:
+        return SYSTEM_APB_SARADC_CLK_EN;
     case PERIPH_RMT_MODULE:
         return SYSTEM_RMT_CLK_EN;
     case PERIPH_LEDC_MODULE:
@@ -49,6 +43,8 @@ static inline uint32_t periph_ll_get_clk_en_mask(periph_module_t periph)
         return SYSTEM_I2S0_CLK_EN;
     case PERIPH_I2S1_MODULE:
         return SYSTEM_I2S1_CLK_EN;
+    case PERIPH_LCD_CAM_MODULE:
+        return SYSTEM_LCD_CAM_CLK_EN;
     case PERIPH_TIMG0_MODULE:
         return SYSTEM_TIMERGROUP_CLK_EN;
     case PERIPH_TIMG1_MODULE:
@@ -57,10 +53,6 @@ static inline uint32_t periph_ll_get_clk_en_mask(periph_module_t periph)
         return SYSTEM_PWM0_CLK_EN;
     case PERIPH_PWM1_MODULE:
         return SYSTEM_PWM1_CLK_EN;
-    case PERIPH_PWM2_MODULE:
-        return SYSTEM_PWM2_CLK_EN;
-    case PERIPH_PWM3_MODULE:
-        return SYSTEM_PWM3_CLK_EN;
     case PERIPH_UHCI0_MODULE:
         return SYSTEM_UHCI0_CLK_EN;
     case PERIPH_UHCI1_MODULE:
@@ -101,6 +93,10 @@ static inline uint32_t periph_ll_get_clk_en_mask(periph_module_t periph)
         return SYSTEM_CRYPTO_SHA_CLK_EN;
     case PERIPH_RSA_MODULE:
         return SYSTEM_CRYPTO_RSA_CLK_EN;
+    case PERIPH_HMAC_MODULE:
+        return SYSTEM_CRYPTO_HMAC_CLK_EN;
+    case PERIPH_DS_MODULE:
+        return SYSTEM_CRYPTO_DS_CLK_EN;
     default:
         return 0;
     }
@@ -108,10 +104,9 @@ static inline uint32_t periph_ll_get_clk_en_mask(periph_module_t periph)
 
 static inline uint32_t periph_ll_get_rst_en_mask(periph_module_t periph, bool enable)
 {
-
-    (void)enable; // unused
-
     switch (periph) {
+    case PERIPH_SARADC_MODULE:
+        return SYSTEM_APB_SARADC_RST;
     case PERIPH_RMT_MODULE:
         return SYSTEM_RMT_RST;
     case PERIPH_LEDC_MODULE:
@@ -132,6 +127,8 @@ static inline uint32_t periph_ll_get_rst_en_mask(periph_module_t periph, bool en
         return SYSTEM_I2S0_RST;
     case PERIPH_I2S1_MODULE:
         return SYSTEM_I2S1_RST;
+    case PERIPH_LCD_CAM_MODULE:
+        return SYSTEM_LCD_CAM_RST;
     case PERIPH_TIMG0_MODULE:
         return SYSTEM_TIMERGROUP_RST;
     case PERIPH_TIMG1_MODULE:
@@ -140,10 +137,6 @@ static inline uint32_t periph_ll_get_rst_en_mask(periph_module_t periph, bool en
         return SYSTEM_PWM0_RST;
     case PERIPH_PWM1_MODULE:
         return SYSTEM_PWM1_RST;
-    case PERIPH_PWM2_MODULE:
-        return SYSTEM_PWM2_RST;
-    case PERIPH_PWM3_MODULE:
-        return SYSTEM_PWM3_RST;
     case PERIPH_UHCI0_MODULE:
         return SYSTEM_UHCI0_RST;
     case PERIPH_UHCI1_MODULE:
@@ -166,6 +159,10 @@ static inline uint32_t periph_ll_get_rst_en_mask(periph_module_t periph, bool en
         return SYSTEM_RST_EN_DEDICATED_GPIO;
     case PERIPH_GDMA_MODULE:
         return SYSTEM_DMA_RST;
+    case PERIPH_HMAC_MODULE:
+        return SYSTEM_CRYPTO_HMAC_RST;
+    case PERIPH_DS_MODULE:
+        return SYSTEM_CRYPTO_DS_RST;
     case PERIPH_AES_MODULE:
         if (enable == true) {
             // Clear reset on digital signature, otherwise AES unit is held in reset also.
@@ -209,7 +206,10 @@ static uint32_t periph_ll_get_clk_en_reg(periph_module_t periph)
         return SYSTEM_WIFI_CLK_EN_REG ;
     case PERIPH_UART2_MODULE:
     case PERIPH_SDMMC_MODULE:
+    case PERIPH_LCD_CAM_MODULE:
     case PERIPH_GDMA_MODULE:
+    case PERIPH_HMAC_MODULE:
+    case PERIPH_DS_MODULE:
     case PERIPH_AES_MODULE:
     case PERIPH_SHA_MODULE:
     case PERIPH_RSA_MODULE:
@@ -233,7 +233,10 @@ static uint32_t periph_ll_get_rst_en_reg(periph_module_t periph)
         return SYSTEM_CORE_RST_EN_REG;
     case PERIPH_UART2_MODULE:
     case PERIPH_SDMMC_MODULE:
+    case PERIPH_LCD_CAM_MODULE:
     case PERIPH_GDMA_MODULE:
+    case PERIPH_HMAC_MODULE:
+    case PERIPH_DS_MODULE:
     case PERIPH_AES_MODULE:
     case PERIPH_SHA_MODULE:
     case PERIPH_RSA_MODULE:

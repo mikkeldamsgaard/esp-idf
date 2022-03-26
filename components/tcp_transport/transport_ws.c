@@ -594,6 +594,9 @@ static int ws_get_socket(esp_transport_handle_t t)
 esp_transport_handle_t esp_transport_ws_init(esp_transport_handle_t parent_handle)
 {
     esp_transport_handle_t t = esp_transport_init();
+    if (t == NULL) {
+        return NULL;
+    }
     transport_ws_t *ws = calloc(1, sizeof(transport_ws_t));
     ESP_TRANSPORT_MEM_CHECK(TAG, ws, return NULL);
     ws->parent = parent_handle;
@@ -613,7 +616,7 @@ esp_transport_handle_t esp_transport_ws_init(esp_transport_handle_t parent_handl
     });
 
     esp_transport_set_func(t, ws_connect, ws_read, ws_write, ws_close, ws_poll_read, ws_poll_write, ws_destroy);
-    // webocket underlying transfer is the payload transfer handle
+    // websocket underlying transfer is the payload transfer handle
     esp_transport_set_parent_transport_func(t, ws_get_payload_transport_handle);
 
     esp_transport_set_context_data(t, ws);

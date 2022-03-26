@@ -52,13 +52,19 @@ IDF 监视器是一个串行终端程序，用于收发目标设备串口的串�
      - 激活时，会丢弃所有传入的串行数据。允许在不退出监视器的情况下快速暂停和检查日志输出。                   
    * - * Ctrl+L
      - 停止/恢复向文件写入日志输出
-     - 在工程目录下创建一个文件，用于写入日志输出。可使用快捷键停止/恢复该功能（退出 IDF 监视器也会终止该功能）                                     
+     - 在工程目录下创建一个文件，用于写入日志输出。可使用快捷键停止/恢复该功能（退出 IDF 监视器也会终止该功能） 
+   * - * Ctrl+I (或者 I)
+     - 停止/恢复打印时间标记
+     - IDF 监视器可以在每一行的开头打印一个时间标记。时间标记的格式可以通过 ``--timestamp-format`` 命令行参数来改变。        
    * - * Ctrl+H (或者 H)
      - 显示所有快捷键
      -                                      
    * - * Ctrl+X (或者 X)
      - 退出监视器程序
-     -  
+     - 
+   * - Ctrl+C
+     - 中断正在运行的应用程序
+     - 暂停 IDF 监视器并运行 GDB_ 项目调试器，从而在运行时调试应用程序。这需要启 :ref:CONFIG_ESP_SYSTEM_GDBSTUB_RUNTIME 选项。   
 
 除了 ``Ctrl-]`` 和 ``Ctrl-T``，其他快捷键信号会通过串口发送到目标设备。
 
@@ -73,7 +79,9 @@ ESP-IDF 输出形式为 ``0x4_______`` 的十六进制代码地址后，IDF 监�
 
 .. highlight:: none
 
-ESP-IDF 应用程序发生 crash 和 panic 事件时，将产生如下的寄存器转储和回溯::
+.. only:: CONFIG_IDF_TARGET_ARCH_XTENSA
+
+  ESP-IDF 应用程序发生 crash 和 panic 事件时，将产生如下的寄存器转储和回溯::
 
     Guru Meditation Error of type StoreProhibited occurred on core  0. Exception was unhandled.
     Register dump:
@@ -86,7 +94,7 @@ ESP-IDF 应用程序发生 crash 和 panic 事件时，将产生如下的寄存�
 
     Backtrace: 0x400f360d:0x3ffb7e00 0x400dbf56:0x3ffb7e20 0x400dbf5e:0x3ffb7e40 0x400dbf82:0x3ffb7e60 0x400d071d:0x3ffb7e90
 
-IDF 监视器为寄存器转储补充如下信息::
+  IDF 监视器为寄存器转储补充如下信息::
 
     Guru Meditation Error of type StoreProhibited occurred on core  0. Exception was unhandled.
     Register dump:
@@ -107,6 +115,70 @@ IDF 监视器为寄存器转储补充如下信息::
     0x400dbf82: app_main at /home/gus/esp/32/idf/examples/get-started/hello_world/main/./hello_world_main.c:33
     0x400d071d: main_task at /home/gus/esp/32/idf/components/{IDF_TARGET_PATH_NAME}/./cpu_start.c:254
 
+.. only:: CONFIG_IDF_TARGET_ARCH_RISCV
+
+  ESP-IDF 应用程序发生 crash 和 panic 事件时，将产生如下的寄存器转储和回溯::
+
+      abort() was called at PC 0x42067cd5 on core 0
+
+      Stack dump detected
+      Core  0 register dump:
+      MEPC    : 0x40386488  RA      : 0x40386b02  SP      : 0x3fc9a350  GP      : 0x3fc923c0
+      TP      : 0xa5a5a5a5  T0      : 0x37363534  T1      : 0x7271706f  T2      : 0x33323130
+      S0/FP   : 0x00000004  S1      : 0x3fc9a3b4  A0      : 0x3fc9a37c  A1      : 0x3fc9a3b2
+      A2      : 0x00000000  A3      : 0x3fc9a3a9  A4      : 0x00000001  A5      : 0x3fc99000
+      A6      : 0x7a797877  A7      : 0x76757473  S2      : 0xa5a5a5a5  S3      : 0xa5a5a5a5
+      S4      : 0xa5a5a5a5  S5      : 0xa5a5a5a5  S6      : 0xa5a5a5a5  S7      : 0xa5a5a5a5
+      S8      : 0xa5a5a5a5  S9      : 0xa5a5a5a5  S10     : 0xa5a5a5a5  S11     : 0xa5a5a5a5
+      T3      : 0x6e6d6c6b  T4      : 0x6a696867  T5      : 0x66656463  T6      : 0x62613938
+      MSTATUS : 0x00001881  MTVEC   : 0x40380001  MCAUSE  : 0x00000007  MTVAL   : 0x00000000
+
+      MHARTID : 0x00000000
+
+      Stack memory:
+      3fc9a350: 0xa5a5a5a5 0xa5a5a5a5 0x3fc9a3b0 0x403906cc 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a50
+      3fc9a370: 0x3fc9a3b4 0x3fc9423c 0x3fc9a3b0 0x726f6261 0x20292874 0x20736177 0x6c6c61635
+      3fc9a390: 0x43502074 0x34783020 0x37363032 0x20356463 0x63206e6f 0x2065726f 0x000000300
+      3fc9a3b0: 0x00000030 0x36303234 0x35646337 0x3c093700 0x0000002a 0xa5a5a5a5 0x3c0937f48
+      3fc9a3d0: 0x00000001 0x3c0917f8 0x3c0937d4 0x0000002a 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a5e
+      3fc9a3f0: 0x0001f24c 0x000006c8 0x00000000 0x0001c200 0xffffffff 0xffffffff 0x000000200
+      3fc9a410: 0x00001000 0x00000002 0x3c093818 0x3fccb470 0xa5a5a5a5 0xa5a5a5a5 0xa5a5a5a56
+      .....
+
+  通过分析堆栈转储 IDF 监视器为寄存器转储补充如下信息::
+
+    abort() was called at PC 0x42067cd5 on core 0
+    0x42067cd5: __assert_func at /builds/idf/crosstool-NG/.build/riscv32-esp-elf/src/newlib/newlib/libc/stdlib/assert.c:62 (discriminator 8)
+
+    Stack dump detected
+    Core  0 register dump:
+    MEPC    : 0x40386488  RA      : 0x40386b02  SP      : 0x3fc9a350  GP      : 0x3fc923c0
+    0x40386488: panic_abort at /home/marius/esp-idf_2/components/esp_system/panic.c:367
+
+    0x40386b02: rtos_int_enter at /home/marius/esp-idf_2/components/freertos/port/riscv/portasm.S:35
+
+    TP      : 0xa5a5a5a5  T0      : 0x37363534  T1      : 0x7271706f  T2      : 0x33323130
+    S0/FP   : 0x00000004  S1      : 0x3fc9a3b4  A0      : 0x3fc9a37c  A1      : 0x3fc9a3b2
+    A2      : 0x00000000  A3      : 0x3fc9a3a9  A4      : 0x00000001  A5      : 0x3fc99000
+    A6      : 0x7a797877  A7      : 0x76757473  S2      : 0xa5a5a5a5  S3      : 0xa5a5a5a5
+    S4      : 0xa5a5a5a5  S5      : 0xa5a5a5a5  S6      : 0xa5a5a5a5  S7      : 0xa5a5a5a5
+    S8      : 0xa5a5a5a5  S9      : 0xa5a5a5a5  S10     : 0xa5a5a5a5  S11     : 0xa5a5a5a5
+    T3      : 0x6e6d6c6b  T4      : 0x6a696867  T5      : 0x66656463  T6      : 0x62613938
+    MSTATUS : 0x00001881  MTVEC   : 0x40380001  MCAUSE  : 0x00000007  MTVAL   : 0x00000000
+
+    MHARTID : 0x00000000
+
+    Backtrace:
+    panic_abort (details=details@entry=0x3fc9a37c "abort() was called at PC 0x42067cd5 on core 0") at /home/marius/esp-idf_2/components/esp_system/panic.c:367
+    367     *((int *) 0) = 0; // NOLINT(clang-analyzer-core.NullDereference) should be an invalid operation on targets
+    #0  panic_abort (details=details@entry=0x3fc9a37c "abort() was called at PC 0x42067cd5 on core 0") at /home/marius/esp-idf_2/components/esp_system/panic.c:367
+    #1  0x40386b02 in esp_system_abort (details=details@entry=0x3fc9a37c "abort() was called at PC 0x42067cd5 on core 0") at /home/marius/esp-idf_2/components/esp_system/system_api.c:108
+    #2  0x403906cc in abort () at /home/marius/esp-idf_2/components/newlib/abort.c:46
+    #3  0x42067cd8 in __assert_func (file=file@entry=0x3c0937f4 "", line=line@entry=42, func=func@entry=0x3c0937d4 <__func__.8540> "", failedexpr=failedexpr@entry=0x3c0917f8 "") at /builds/idf/crosstool-NG/.build/riscv32-esp-elf/src/newlib/newlib/libc/stdlib/assert.c:62
+    #4  0x4200729e in app_main () at ../main/iperf_example_main.c:42
+    #5  0x42086cd6 in main_task (args=<optimized out>) at /home/marius/esp-idf_2/components/freertos/port/port_common.c:133
+    #6  0x40389f3a in vPortEnterCritical () at /home/marius/esp-idf_2/components/freertos/port/riscv/port.c:129
+
 IDF 监视器在后台运行以下命令，解码各地址::
 
   {IDF_TARGET_TOOLCHAIN_PREFIX}-addr2line -pfiaC -e build/PROJECT.elf ADDRESS
@@ -120,15 +192,17 @@ IDF 监视器在后台运行以下命令，解码各地址::
 
 默认情况下，如果 ESP-IDF 应用程序发生 crash 事件，panic 处理器将在串口上打印相关寄存器和堆栈转储（类似上述情况），然后重置开发板。
 
+此外，可以配置应用程序在后台运行 GDBStub 并处理运行中的应用程序突然中断事件 (Ctrl+C)。
+
 或者选择配置 panic 处理器以运行 GDBStub，GDBStub 工具可以与 GDB_ 项目调试器进行通信，允许读取内存、检查调用堆栈帧和变量等。GDBStub 虽然没有 JTAG 通用，但不需要使用特殊硬件。
 
-如需启用 GDBStub，请运行 ``idf.py menuconfig`` （适用于 CMake 编译系统），并将 :ref:`CONFIG_ESP_SYSTEM_PANIC` 选项设置为 ``Invoke GDBStub``。
+如需在发生 panic 事件时启用 GDBStub，请运行 ``idf.py menuconfig`` 打开项目配置菜单，并将 :ref:`CONFIG_ESP_SYSTEM_PANIC` 选项设置为 ``GDBStub on panic``，或者将 :ref:`CONFIG_ESP_SYSTEM_PANIC` 设置为 ``GDBStub on runtime``。
 
-在这种情况下，如果 panic 处理器被触发，只要 IDF 监视器监控到 GDBStub 已经加载，panic 处理器就会自动暂停串行监控并使用必要的参数运行 GDB。GDB 退出后，通过 RTS 串口线复位开发板。如果未连接 RTS 串口线，请按复位键，手动复位开发板。
+在这种情况下，如果 panic 处理器被触发或应用程序突然中断 (Ctrl+C)，只要 IDF 监视器监控到 GDBStub 已经加载，panic 处理器就会自动暂停串行监控并使用必要的参数运行 GDB。GDB 退出后，通过 RTS 串口线复位开发板。如果未连接 RTS 串口线，请按复位键，手动复位开发板。
 
 IDF 监控器在后台运行如下命令::
 
-  {IDF_TARGET_TOOLCHAIN_PREFIX}-gdb -ex "set serial baud BAUD" -ex "target remote PORT" -ex interrupt build/PROJECT.elf
+  {IDF_TARGET_TOOLCHAIN_PREFIX}-gdb -ex "set serial baud BAUD" -ex "target remote PORT" -ex interrupt build/PROJECT.elf :idf_target:`Hello NAME chip`
 
 
 输出筛选
@@ -196,11 +270,9 @@ IDF 监视器已知问题
 Windows 环境下已知问题
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-- 若在 Windows 环境下，出现 "winpty: command not found" 错误，请运行 ``pacman -S winpty`` 进行修复。
 - 由于 Windows 控制台限制，有些箭头键及其他一些特殊键无法在 GDB 中使用。
 - 偶然情况下，``idf.py`` 或 ``make`` 退出时，可能会在 IDF 监视器恢复之前暂停 30 秒。
 - GDB 运行时，可能会暂停一段时间，然后才开始与 GDBStub 进行通信。
-
 
 .. _addr2line: https://sourceware.org/binutils/docs/binutils/addr2line.html
 .. _gdb: https://sourceware.org/gdb/download/onlinedocs/

@@ -625,8 +625,3 @@ bool esp_timer_is_active(esp_timer_handle_t timer)
 {
     return timer_armed(timer);
 }
-
-bool esp_timer_is_active(esp_timer_handle_t timer)
-{
-    return timer_armed(timer);
-}

@@ -1,7 +1,6 @@
 set(srcs
     "transport.c"
     "transport_ssl.c"
-    "transport_tcp.c"
     "transport_utils.c")
 
 if(CONFIG_WS_TRANSPORT)

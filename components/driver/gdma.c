@@ -600,12 +600,6 @@ static void gdma_uninstall_pair(gdma_pair_t *pair)
         assert(group->pairs[pair_id]);
         do_deinitialize = true;
         group->pairs[pair_id] = NULL; // deregister from pair
-        if (pair->intr) {
-            // disable interrupt handler (but not freed, esp_intr_free is a blocking API, we can't use it in a critical section)
-            esp_intr_disable(pair->intr);
-            gdma_ll_enable_interrupt(group->hal.dev, pair->pair_id, UINT32_MAX, false); // disable all interupt events
-            gdma_ll_clear_interrupt_status(group->hal.dev, pair->pair_id, UINT32_MAX);  // clear all pending events
-        }
     }
     portEXIT_CRITICAL(&group->spinlock);
 

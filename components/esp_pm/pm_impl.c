@@ -345,37 +345,6 @@ esp_err_t esp_pm_get_configuration(void* vconfig)
     config->min_freq_mhz = s_cpu_freq_by_mode[PM_MODE_APB_MIN].freq_mhz;
     portEXIT_CRITICAL(&s_switch_lock);
 
-#if CONFIG_PM_SLP_DEFAULT_PARAMS_OPT
-    if (config->light_sleep_enable) {
-        esp_pm_light_sleep_default_params_config(min_freq_mhz, max_freq_mhz);
-    }
-#endif
-
-    return ESP_OK;
-}
-
-esp_err_t esp_pm_get_configuration(void* vconfig)
-{
-    if (vconfig == NULL) {
-        return ESP_ERR_INVALID_ARG;
-    }
-
-#if CONFIG_IDF_TARGET_ESP32
-    esp_pm_config_esp32_t* config = (esp_pm_config_esp32_t*) vconfig;
-#elif CONFIG_IDF_TARGET_ESP32S2
-    esp_pm_config_esp32s2_t* config = (esp_pm_config_esp32s2_t*) vconfig;
-#elif CONFIG_IDF_TARGET_ESP32S3
-    esp_pm_config_esp32s3_t* config = (esp_pm_config_esp32s3_t*) vconfig;
-#elif CONFIG_IDF_TARGET_ESP32C3
-    esp_pm_config_esp32c3_t* config = (esp_pm_config_esp32c3_t*) vconfig;
-#endif
-
-    portENTER_CRITICAL(&s_switch_lock);
-    config->light_sleep_enable = s_light_sleep_en;
-    config->max_freq_mhz = s_cpu_freq_by_mode[PM_MODE_CPU_MAX].freq_mhz;
-    config->min_freq_mhz = s_cpu_freq_by_mode[PM_MODE_APB_MIN].freq_mhz;
-    portEXIT_CRITICAL(&s_switch_lock);
-
     return ESP_OK;
 }
 

@@ -220,11 +220,6 @@ static esp_err_t alloc_dma_chan(spi_host_device_t host_id, spi_dma_chan_t dma_ch
     if (!success) {
         SPI_CHECK(false, "no available dma channel", ESP_ERR_NOT_FOUND);
     }
-    if (ctx->tx_channel) {
-        gdma_disconnect(ctx->tx_channel);
-        gdma_del_channel(ctx->tx_channel);
-    }
-#endif
 
     connect_spi_and_dma(host_id, *out_actual_tx_dma_chan);
 

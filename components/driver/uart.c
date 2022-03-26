@@ -1187,10 +1187,6 @@ static int uart_tx_all(uart_port_t uart_num, const char *src, size_t size, bool 
     p_uart_obj[uart_num]->coll_det_flg = false;
     if (p_uart_obj[uart_num]->tx_buf_size > 0) {
         size_t max_size = xRingbufferGetMaxItemSize(p_uart_obj[uart_num]->tx_ring_buf);
-        if(!write_all) {
-            size_t max_free = xRingbufferGetCurFreeSize(p_uart_obj[uart_num]->tx_ring_buf);
-            max_size = max_size < max_free ? max_size : max_free;
-        }
         int offset = 0;
         uart_tx_data_t evt;
         evt.tx_data.size = size;
@@ -1207,9 +1203,6 @@ static int uart_tx_all(uart_port_t uart_num, const char *src, size_t size, bool 
             size -= send_size;
             offset += send_size;
             uart_enable_tx_intr(uart_num, 1, UART_EMPTY_THRESH_DEFAULT);
-            if (!write_all) {
-                break;
-            }
         }
     } else {
         while (size) {
@@ -1230,11 +1223,8 @@ static int uart_tx_all(uart_port_t uart_num, const char *src, size_t size, bool 
                 size -= sent;
                 src += sent;
             }
-            if (!write_all) {
-                break;
-            }
         }
-        if(brk_en && size == 0) {
+        if (brk_en) {
             uart_hal_clr_intsts_mask(&(uart_context[uart_num].hal), UART_INTR_TX_BRK_DONE);
             UART_ENTER_CRITICAL(&(uart_context[uart_num].spinlock));
             uart_hal_tx_break(&(uart_context[uart_num].hal), brk_len);
@@ -1245,7 +1235,7 @@ static int uart_tx_all(uart_port_t uart_num, const char *src, size_t size, bool 
         xSemaphoreGive(p_uart_obj[uart_num]->tx_fifo_sem);
     }
     xSemaphoreGive(p_uart_obj[uart_num]->tx_mux);
-    return original_size - size;
+    return original_size;
 }
 
 int uart_write_bytes(uart_port_t uart_num, const void *src, size_t size)
@@ -1271,7 +1261,7 @@ int uart_write_bytes_non_blocking(uart_port_t uart_num, const void* src, size_t 
     ESP_RETURN_ON_FALSE((uart_num < UART_NUM_MAX), (-1), UART_TAG, "uart_num error");
     ESP_RETURN_ON_FALSE((p_uart_obj[uart_num] != NULL), (-1), UART_TAG, "uart driver error");
     ESP_RETURN_ON_FALSE(src, (-1), UART_TAG, "buffer null");
-    return uart_tx_all(uart_num, false, src, size, 0, 0);
+    return uart_tx_all(uart_num, src, size, 0, 0);
 }
 
 int uart_write_bytes_with_break_non_blocking(uart_port_t uart_num, const void* src, size_t size, int brk_len)
@@ -1373,16 +1363,6 @@ esp_err_t uart_get_buffered_data_len(uart_port_t uart_num, size_t *size)
 
 esp_err_t uart_flush(uart_port_t uart_num) __attribute__((alias("uart_flush_input")));
 
-static esp_err_t uart_disable_intr_mask_and_return_prev(uart_port_t uart_num, uint32_t disable_mask, uint32_t* prev_mask)
-{
-    UART_CHECK((uart_num < UART_NUM_MAX), "uart_num error", ESP_FAIL);
-    UART_ENTER_CRITICAL(&(uart_context[uart_num].spinlock));
-    *prev_mask = uart_hal_get_intr_ena_status(&uart_context[uart_num].hal) & disable_mask;
-    uart_hal_disable_intr_mask(&(uart_context[uart_num].hal), disable_mask);
-    UART_EXIT_CRITICAL(&(uart_context[uart_num].spinlock));
-    return ESP_OK;
-}
-
 esp_err_t uart_flush_input(uart_port_t uart_num)
 {
     ESP_RETURN_ON_FALSE((uart_num < UART_NUM_MAX), ESP_FAIL, UART_TAG, "uart_num error");
@@ -1390,7 +1370,6 @@ esp_err_t uart_flush_input(uart_port_t uart_num)
     uart_obj_t *p_uart = p_uart_obj[uart_num];
     uint8_t *data;
     size_t size;
-    uint32_t prev_mask;
 
     //rx sem protect the ring buffer read related functions
     xSemaphoreTake(p_uart->rx_mux, (portTickType)portMAX_DELAY);

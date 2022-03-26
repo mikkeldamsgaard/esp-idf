@@ -217,21 +217,6 @@ static int http_on_header_event(esp_http_client_handle_t client)
     return 0;
 }
 
-static int http_on_header_event(esp_http_client_handle_t client)
-{
-    if (client->current_header_key != NULL && client->current_header_value != NULL) {
-        ESP_LOGD(TAG, "HEADER=%s:%s", client->current_header_key, client->current_header_value);
-        client->event.header_key = client->current_header_key;
-        client->event.header_value = client->current_header_value;
-        http_dispatch_event(client, HTTP_EVENT_ON_HEADER, NULL, 0);
-        free(client->current_header_key);
-        free(client->current_header_value);
-        client->current_header_key = NULL;
-        client->current_header_value = NULL;
-    }
-    return 0;
-}
-
 static int http_on_header_field(http_parser *parser, const char *at, size_t length)
 {
     esp_http_client_t *client = parser->data;

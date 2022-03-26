@@ -236,9 +236,6 @@ static inline int esp_supplicant_common_init(struct wpa_funcs *wpa_cb)
 static inline void esp_supplicant_common_deinit(void)
 {
 }
-static inline void esp_supplicant_common_deinit(void)
-{
-}
 #endif
 
 int esp_supplicant_init(void)

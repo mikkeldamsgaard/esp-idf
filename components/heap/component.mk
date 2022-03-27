@@ -4,14 +4,14 @@
 
 COMPONENT_SRCDIRS := . third_party/dartino port port/$(IDF_TARGET)
 COMPONENT_ADD_INCLUDEDIRS := include
-COMPONENT_OBJS := heap_caps_init.o heap_caps.o
+COMPONENT_OBJS := heap_caps_init.o heap_caps.o port/memory_layout_utils.o port/$(IDF_TARGET)/memory_layout.o
 
 ifdef CONFIG_CMPCT_MALLOC_HEAP
 COMPONENT_OBJS += third_party/dartino/cmpctmalloc.o
 endif
 
 ifndef CONFIG_CMPCT_MALLOC_HEAP
-COMPONENT_OBJS += multi_heap.o heap_tlsf.o port/memory_layout_utils.o port/$(IDF_TARGET)/memory_layout.o
+COMPONENT_OBJS += multi_heap.o heap_tlsf.o
 endif
 
 ifndef CONFIG_HEAP_POISONING_DISABLED

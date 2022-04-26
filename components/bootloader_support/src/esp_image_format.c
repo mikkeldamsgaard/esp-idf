@@ -151,7 +151,9 @@ static esp_err_t image_load(esp_image_load_mode_t mode, const esp_partition_pos_
     CHECK_ERR(process_image_header(data, part->offset, (verify_sha) ? p_sha_handle : NULL, do_verify, silent));
     CHECK_ERR(process_segments(data, silent, do_load, sha_handle, checksum));
     bool skip_check_checksum = !do_verify || esp_cpu_in_ocd_debug_mode();
+    ESP_LOGI(TAG, "process checksum");
     CHECK_ERR(process_checksum(sha_handle, checksum_word, data, silent, skip_check_checksum));
+    ESP_LOGI(TAG, "process append hash");
     CHECK_ERR(process_appended_hash(data, part->size, do_verify, silent));
     if (verify_sha) {
 #if (SECURE_BOOT_CHECK_SIGNATURE == 1)

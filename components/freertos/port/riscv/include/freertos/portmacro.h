@@ -487,12 +487,6 @@ bool xPortcheckValidStackMem(const void *ptr);
  * ------------------------------------------------------------------------------------------------------------------ */
 
 #include "portmacro_deprecated.h"
-// configASSERT_2 if requested
-#if configASSERT_2
-#include <stdio.h>
-void exit(int);
-#define configASSERT( x )   if (!(x)) { porttracePrint(-1); printf("\nAssertion failed in %s:%d\n", __FILE__, __LINE__); exit(-1); }
-#endif
 
 #ifdef __cplusplus
 }

@@ -166,52 +166,6 @@ static void prvTaskExitError(void)
     abort();
 }
 
-/* Clear current interrupt mask and set given mask */
-void vPortClearInterruptMask(int mask)
-{
-    REG_WRITE(INTERRUPT_CORE0_CPU_INT_THRESH_REG, mask);
-    /**
-     * The delay between the moment we unmask the interrupt threshold register
-     * and the moment the potential requested interrupt is triggered is not
-     * null: up to three machine cycles/instructions can be executed.
-     *
-     * When compilation size optimization is enabled, this function and its
-     * callers returning void will have NO epilogue, thus the instruction
-     * following these calls will be executed.
-     *
-     * If the requested interrupt is a context switch to a higher priority
-     * task then the one currently running, we MUST NOT execute any instruction
-     * before the interrupt effectively happens.
-     * In order to prevent this, force this routine to have a 3-instruction
-     * delay before exiting.
-     */
-    asm volatile ( "nop" );
-    asm volatile ( "nop" );
-    asm volatile ( "nop" );
-}
-
-/* Set interrupt mask and return current interrupt enable register */
-int vPortSetInterruptMask(void)
-{
-    int ret;
-    unsigned old_mstatus = RV_CLEAR_CSR(mstatus, MSTATUS_MIE);
-    ret = REG_READ(INTERRUPT_CORE0_CPU_INT_THRESH_REG);
-    REG_WRITE(INTERRUPT_CORE0_CPU_INT_THRESH_REG, RVHAL_EXCM_LEVEL);
-    RV_SET_CSR(mstatus, old_mstatus & MSTATUS_MIE);
-    /**
-     * In theory, this function should not return immediately as there is a
-     * delay between the moment we mask the interrupt threshold register and
-     * the moment a potential lower-priority interrupt is triggered (as said
-     * above), it should have a delay of 2 machine cycles/instructions.
-     *
-     * However, in practice, this function has an epilogue of one instruction,
-     * thus the instruction masking the interrupt threshold register is
-     * followed by two instructions: `ret` and `csrrs` (RV_SET_CSR).
-     * That's why we don't need any additional nop instructions here.
-     */
-    return ret;
-}
-
 StackType_t *pxPortInitialiseStack(StackType_t *pxTopOfStack, TaskFunction_t pxCode, void *pvParameters)
 {
     extern uint32_t __global_pointer$;

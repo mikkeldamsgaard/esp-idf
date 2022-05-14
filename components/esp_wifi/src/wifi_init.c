@@ -118,9 +118,6 @@ esp_err_t esp_wifi_deinit(void)
 #if CONFIG_ESP_WIFI_SLP_IRAM_OPT
     esp_pm_unregister_light_sleep_default_params_config_callback();
 #endif
-#if CONFIG_ESP_WIFI_SLP_IRAM_OPT
-    esp_pm_unregister_light_sleep_default_params_config_callback();
-#endif
 #if CONFIG_FREERTOS_USE_TICKLESS_IDLE
 #if SOC_WIFI_HW_TSF
     esp_pm_unregister_skip_light_sleep_callback(esp_wifi_internal_is_tsf_active);

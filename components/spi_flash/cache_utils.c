@@ -78,8 +78,8 @@ static volatile int s_flash_op_cpu = -1;
 static inline bool esp_task_stack_is_sane_cache_disabled(void)
 {
     const void *sp = (const void *)esp_cpu_get_sp();
-
-    return esp_ptr_in_dram(sp)
+    //printf("sp: %x\n", (uint32_t)sp);
+    return esp_ptr_in_dram(sp) || esp_ptr_in_drom(sp)
 #if CONFIG_ESP_SYSTEM_ALLOW_RTC_FAST_MEM_AS_HEAP
         || esp_ptr_in_rtc_dram_fast(sp)
 #endif

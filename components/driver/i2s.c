@@ -1141,6 +1141,8 @@ static esp_err_t i2s_calculate_common_clock(int i2s_num, i2s_hal_clock_cfg_t *cl
                     p_i2s[i2s_num]->fixed_mclk : (rate * multi);
     /* Calculate bclk_div = mclk / bclk */
     clk_cfg->bclk_div = clk_cfg->mclk / clk_cfg->bclk;
+
+    printf("I2S %d: mclk=%d  bclk_div=%d\n", i2s_num, clk_cfg->mclk, clk_cfg->bclk_div);
     /* Get I2S system clock by config source clock */
     clk_cfg->sclk = i2s_config_source_clock(i2s_num, p_i2s[i2s_num]->use_apll, clk_cfg->mclk);
     /* Get I2S master clock rough division, later will calculate the fine division parameters in HAL */

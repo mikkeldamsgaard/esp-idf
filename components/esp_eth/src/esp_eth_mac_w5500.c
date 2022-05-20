@@ -332,7 +332,7 @@ static void emac_w5500_task(void *arg)
             w5500_write(emac, W5500_REG_SOCK_IR(0), &status, sizeof(status));
             do {
                 length = ETH_MAX_PACKET_SIZE;
-                buffer = heap_caps_malloc(length, MALLOC_CAP_DMA);
+                buffer = heap_caps_malloc(length, MALLOC_CAP_SPIRAM);
                 if (!buffer) {
                     ESP_LOGE(TAG, "no mem for receive buffer");
                     break;
@@ -520,7 +520,7 @@ static esp_err_t emac_w5500_transmit(esp_eth_mac_t *mac, uint8_t *buf, uint32_t 
     // check if there're free memory to store this packet
     uint16_t free_size = 0;
     ESP_GOTO_ON_ERROR(w5500_get_tx_free_size(emac, &free_size), err, TAG, "get free size failed");
-    ESP_GOTO_ON_FALSE(length <= free_size, ESP_ERR_NO_MEM, err, TAG, "free size (%d) < send length (%d)", length, free_size);
+    ESP_GOTO_ON_FALSE(length <= free_size, ESP_ERR_NO_MEM, err, TAG, "send length (%d) <= free size (%d)", length, free_size);
     // get current write pointer
     ESP_GOTO_ON_ERROR(w5500_read(emac, W5500_REG_SOCK_TX_WR(0), &offset, sizeof(offset)), err, TAG, "read TX WR failed");
     offset = __builtin_bswap16(offset);
@@ -569,7 +569,7 @@ static esp_err_t emac_w5500_receive(esp_eth_mac_t *mac, uint8_t *buf, uint32_t *
         rx_len = __builtin_bswap16(rx_len) - 2; // data size includes 2 bytes of header
         offset += 2;
         // read the payload
-        ESP_GOTO_ON_ERROR(w5500_read_buffer(emac, buf, rx_len, offset), err, TAG, "read payload failed, len=%d, offset=%d", rx_len, offset);
+        ESP_GOTO_ON_ERROR(w5500_read_buffer(emac, buf, rx_len, offset), err, TAG, "read, len=%d, offset=%d", rx_len, offset);
         offset += rx_len;
         // update read pointer
         offset = __builtin_bswap16(offset);

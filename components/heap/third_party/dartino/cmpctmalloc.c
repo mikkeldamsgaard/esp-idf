@@ -1542,7 +1542,6 @@ size_t cmpct_free_size_impl(cmpct_heap_t *heap)
 void cmpct_get_info_impl(cmpct_heap_t *heap, multi_heap_info_t *info)
 {
     lock(heap);
-
     info->total_free_bytes = heap->remaining;
     // total_allocated_bytes includes the headers on each allocation, but
     // doesn't include the static structures that are always there once
@@ -1573,7 +1572,7 @@ void cmpct_get_info_impl(cmpct_heap_t *heap, multi_heap_info_t *info)
             } else {
                 ASSERT(current_status == PAGE_CONTINUED);
                 if (current_tag != heap) {  // Pages used for the sub-page allocator are self-tagged.
-                    info->total_allocated_bytes += current_page_run;
+//                    info->total_allocated_bytes += current_page_run;
                     if (current_page_run != 0) info->allocated_blocks++;
                 }
             }

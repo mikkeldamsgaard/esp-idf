@@ -449,7 +449,7 @@ esp_err_t gpio_install_isr_service(int intr_alloc_flags)
     GPIO_CHECK(gpio_context.gpio_isr_func == NULL, "GPIO isr service already installed", ESP_ERR_INVALID_STATE);
     esp_err_t ret;
     portENTER_CRITICAL(&gpio_context.gpio_spinlock);
-    gpio_context.gpio_isr_func = (gpio_isr_func_t *) calloc(GPIO_NUM_MAX, sizeof(gpio_isr_func_t));
+    gpio_context.gpio_isr_func = (gpio_isr_func_t *) heap_caps_malloc(GPIO_NUM_MAX * sizeof(gpio_isr_func_t), MALLOC_CAP_INTERNAL);
     portEXIT_CRITICAL(&gpio_context.gpio_spinlock);
     if (gpio_context.gpio_isr_func == NULL) {
         ret = ESP_ERR_NO_MEM;
@@ -464,6 +464,8 @@ esp_err_t gpio_isr_handler_add(gpio_num_t gpio_num, gpio_isr_t isr_handler, void
 {
     GPIO_CHECK(gpio_context.gpio_isr_func != NULL, "GPIO isr service is not installed, call gpio_install_isr_service() first", ESP_ERR_INVALID_STATE);
     GPIO_CHECK(GPIO_IS_VALID_GPIO(gpio_num), "GPIO number error", ESP_ERR_INVALID_ARG);
+    ESP_LOGI(GPIO_TAG, "Add gpio isr handler on %d.", gpio_num);
+
     portENTER_CRITICAL(&gpio_context.gpio_spinlock);
     gpio_intr_disable(gpio_num);
     if (gpio_context.gpio_isr_func) {
@@ -479,6 +481,7 @@ esp_err_t gpio_isr_handler_remove(gpio_num_t gpio_num)
 {
     GPIO_CHECK(gpio_context.gpio_isr_func != NULL, "GPIO isr service is not installed, call gpio_install_isr_service() first", ESP_ERR_INVALID_STATE);
     GPIO_CHECK(GPIO_IS_VALID_GPIO(gpio_num), "GPIO number error", ESP_ERR_INVALID_ARG);
+    ESP_LOGI(GPIO_TAG, "Remove gpio isr handler on %d", gpio_num);
     portENTER_CRITICAL(&gpio_context.gpio_spinlock);
     gpio_intr_disable(gpio_num);
     if (gpio_context.gpio_isr_func) {

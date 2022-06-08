@@ -62,8 +62,10 @@ static esp_err_t w5500_update_link_duplex_speed(phy_w5500_t *w5500)
     eth_duplex_t duplex = ETH_DUPLEX_HALF;
     phycfg_reg_t phycfg;
 
+
     ESP_GOTO_ON_ERROR(eth->phy_reg_read(eth, w5500->addr, W5500_REG_PHYCFGR, (uint32_t *) & (phycfg.val)), err, TAG, "read PHYCFG failed");
     eth_link_t link = phycfg.link ? ETH_LINK_UP : ETH_LINK_DOWN;
+    ESP_LOGD(TAG, "w5500_update_link_duplex_speed w5500->link_status=%d, phycfg.link=%d", w5500->link_status, phycfg.link);
     /* check if link status changed */
     if (w5500->link_status != link) {
         /* when link up, read negotiation result */
@@ -113,6 +115,7 @@ err:
 
 static esp_err_t w5500_reset(esp_eth_phy_t *phy)
 {
+    ESP_LOGI(TAG, "w5500_reset");
     esp_err_t ret = ESP_OK;
     phy_w5500_t *w5500 = __containerof(phy, phy_w5500_t, parent);
     w5500->link_status = ETH_LINK_DOWN;
@@ -145,6 +148,9 @@ static esp_err_t w5500_reset_hw(esp_eth_phy_t *phy)
 
 static esp_err_t w5500_negotiate(esp_eth_phy_t *phy)
 {
+    ESP_LOGI(TAG, "w5500_negotiate");
+    ESP_LOGD(TAG, "w5500_negotiate");
+
     esp_err_t ret = ESP_OK;
     phy_w5500_t *w5500 = __containerof(phy, phy_w5500_t, parent);
     esp_eth_mediator_t *eth = w5500->eth;

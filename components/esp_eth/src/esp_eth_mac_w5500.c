@@ -371,6 +371,7 @@ static esp_err_t emac_w5500_write_phy_reg(esp_eth_mac_t *mac, uint32_t phy_addr,
     // The only PHY register is PHYCFGR
     ESP_GOTO_ON_FALSE(phy_reg == W5500_REG_PHYCFGR, ESP_FAIL, err, TAG, "wrong PHY register");
     ESP_GOTO_ON_ERROR(w5500_write(emac, W5500_REG_PHYCFGR, &reg_value, sizeof(uint8_t)), err, TAG, "write PHY register failed");
+    ESP_LOGD(TAG, "write_phy_reg: reg_value=%02x", reg_value);
 
 err:
     return ret;
@@ -385,7 +386,7 @@ static esp_err_t emac_w5500_read_phy_reg(esp_eth_mac_t *mac, uint32_t phy_addr, 
     // The only PHY register is PHYCFGR
     ESP_GOTO_ON_FALSE(phy_reg == W5500_REG_PHYCFGR, ESP_FAIL, err, TAG, "wrong PHY register");
     ESP_GOTO_ON_ERROR(w5500_read(emac, W5500_REG_PHYCFGR, reg_value, sizeof(uint8_t)), err, TAG, "read PHY register failed");
-
+    ESP_LOGD(TAG, "read_phy_reg: reg_value=%02x", *(uint8_t*)reg_value);
 err:
     return ret;
 }

@@ -70,8 +70,9 @@ static esp_err_t w5500_write(emac_w5500_t *emac, uint32_t address, const void *v
         .tx_buffer = value
     };
     if (w5500_lock(emac)) {
-        if (spi_device_polling_transmit(emac->spi_hdl, &trans) != ESP_OK) {
-            ESP_LOGE(TAG, "%s(%d): spi transmit failed", __FUNCTION__, __LINE__);
+      esp_err_t err = spi_device_polling_transmit(emac->spi_hdl, &trans);
+      if (err != ESP_OK) {
+            ESP_LOGE(TAG, "%s(%d): spi transmit failed. err=%d", __FUNCTION__, __LINE__,err);
             ret = ESP_FAIL;
         }
         w5500_unlock(emac);
@@ -93,8 +94,9 @@ static esp_err_t w5500_read(emac_w5500_t *emac, uint32_t address, void *value, u
         .rx_buffer = value
     };
     if (w5500_lock(emac)) {
-        if (spi_device_polling_transmit(emac->spi_hdl, &trans) != ESP_OK) {
-            ESP_LOGE(TAG, "%s(%d): spi transmit failed", __FUNCTION__, __LINE__);
+      esp_err_t err = spi_device_polling_transmit(emac->spi_hdl, &trans);
+      if (err != ESP_OK) {
+            ESP_LOGE(TAG, "%s(%d): spi transmit failed, err=%d", __FUNCTION__, __LINE__, err);
             ret = ESP_FAIL;
         }
         w5500_unlock(emac);
@@ -332,11 +334,15 @@ static void emac_w5500_task(void *arg)
             w5500_write(emac, W5500_REG_SOCK_IR(0), &status, sizeof(status));
             do {
                 length = ETH_MAX_PACKET_SIZE;
-                buffer = heap_caps_malloc(length, MALLOC_CAP_SPIRAM);
-                if (!buffer) {
-                    ESP_LOGE(TAG, "no mem for receive buffer");
-                    break;
-                } else if (emac->parent.receive(&emac->parent, buffer, &length) == ESP_OK) {
+                do {
+                  buffer = heap_caps_aligned_alloc(4, length, MALLOC_CAP_DMA);
+                  if (!buffer) {
+                    ESP_LOGI(TAG, "no mem for receive buffer, sleeping and trying again");
+                    vTaskDelay(1);
+                  }
+                } while (!buffer);
+
+                if (emac->parent.receive(&emac->parent, buffer, &length) == ESP_OK) {
                     /* pass the buffer to stack (e.g. TCP/IP layer) */
                     if (length) {
                         emac->eth->stack_input(emac->eth, buffer, length);
@@ -638,7 +644,7 @@ esp_eth_mac_t *esp_eth_mac_new_w5500(const eth_w5500_config_t *w5500_config, con
     esp_eth_mac_t *ret = NULL;
     emac_w5500_t *emac = NULL;
     ESP_GOTO_ON_FALSE(w5500_config && mac_config, NULL, err, TAG, "invalid argument");
-    emac = calloc(1, sizeof(emac_w5500_t));
+    emac = heap_caps_malloc(sizeof(emac_w5500_t), MALLOC_CAP_INTERNAL);
     ESP_GOTO_ON_FALSE(emac, NULL, err, TAG, "no mem for MAC instance");
     /* w5500 driver is interrupt driven */
     ESP_GOTO_ON_FALSE(w5500_config->int_gpio_num >= 0, NULL, err, TAG, "invalid interrupt gpio number");
@@ -672,6 +678,7 @@ esp_eth_mac_t *esp_eth_mac_new_w5500(const eth_w5500_config_t *w5500_config, con
     if (mac_config->flags & ETH_MAC_FLAG_PIN_TO_CORE) {
         core_num = cpu_hal_get_core_id();
     }
+    ESP_LOGI(TAG, "Starting w5500 task on core %d",core_num);
     BaseType_t xReturned = xTaskCreatePinnedToCore(emac_w5500_task, "w5500_tsk", mac_config->rx_task_stack_size, emac,
                            mac_config->rx_task_prio, &emac->rx_task_hdl, core_num);
     ESP_GOTO_ON_FALSE(xReturned == pdPASS, NULL, err, TAG, "create w5500 task failed");

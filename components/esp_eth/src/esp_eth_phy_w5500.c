@@ -235,7 +235,7 @@ esp_eth_phy_t *esp_eth_phy_new_w5500(const eth_phy_config_t *config)
 {
     esp_eth_phy_t *ret = NULL;
     ESP_GOTO_ON_FALSE(config, NULL, err, TAG, "invalid arguments");
-    phy_w5500_t *w5500 = calloc(1, sizeof(phy_w5500_t));
+    phy_w5500_t *w5500 = heap_caps_malloc(sizeof(phy_w5500_t), MALLOC_CAP_INTERNAL);
     ESP_GOTO_ON_FALSE(w5500, NULL, err, TAG, "no mem for PHY instance");
     w5500->addr = config->phy_addr;
     w5500->reset_timeout_ms = config->reset_timeout_ms;

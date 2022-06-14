@@ -312,6 +312,7 @@ struct multi_heap_info {
     // For page allocator, not originally part of cmpctmalloc.
     int32_t number_of_pages;
     char *page_base;
+    void *highest_address;
     Page pages[1];
 };
 
@@ -688,6 +689,7 @@ static void cmpct_test_get_info(cmpct_heap_t *heap)
     multi_heap_info_t info;
     cmpct_get_info_impl(heap, &info);
     size_t free_bytes_1 = info.total_free_bytes;
+    size_t allocated_bytes_1 = info.total_allocated_bytes;
 
     size_t SIZE = 1024 * 16;
 
@@ -695,9 +697,10 @@ static void cmpct_test_get_info(cmpct_heap_t *heap)
 
     cmpct_get_info_impl(heap, &info);
     size_t free_bytes_2 = info.total_free_bytes;
-
+    size_t allocated_bytes_2 = info.total_allocated_bytes;
 
     ASSERT(free_bytes_2 + SIZE == free_bytes_1);
+    ASSERT(allocated_bytes_2 - SIZE == allocated_bytes_1);
     cmpct_free_impl(heap, p);
 }
 
@@ -1249,6 +1252,8 @@ cmpct_heap_t *cmpct_register_impl(void *start, size_t size)
     page_heap->pages[pages].status = PAGE_IN_USE;
     page_heap->pages[pages].tag = NULL;
 
+    page_heap->highest_address = (void *)end_int;
+
     cmpct_init(page_heap);
 
     uintptr_t rest_of_zeroth_page = ROUND_UP(end_of_struct, sizeof(header_t));
@@ -1542,6 +1547,7 @@ size_t cmpct_free_size_impl(cmpct_heap_t *heap)
 void cmpct_get_info_impl(cmpct_heap_t *heap, multi_heap_info_t *info)
 {
     lock(heap);
+
     info->total_free_bytes = heap->remaining;
     // total_allocated_bytes includes the headers on each allocation, but
     // doesn't include the static structures that are always there once
@@ -1572,7 +1578,6 @@ void cmpct_get_info_impl(cmpct_heap_t *heap, multi_heap_info_t *info)
             } else {
                 ASSERT(current_status == PAGE_CONTINUED);
                 if (current_tag != heap) {  // Pages used for the sub-page allocator are self-tagged.
-//                    info->total_allocated_bytes += current_page_run;
                     if (current_page_run != 0) info->allocated_blocks++;
                 }
             }
@@ -1611,6 +1616,10 @@ void cmpct_get_info_impl(cmpct_heap_t *heap, multi_heap_info_t *info)
         }
     }
     info->total_blocks = info->free_blocks + info->allocated_blocks;
+    // The implementation always takes the first part of its area for admin, so
+    // it can never return an address that is lower than the end of that.
+    info->lowest_address = (void *)(heap + 1);  // Use C pointer arithmetic.
+    info->highest_address = heap->highest_address;
     unlock(heap);
 }
 

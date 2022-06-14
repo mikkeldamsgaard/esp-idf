@@ -335,7 +335,7 @@ static void emac_w5500_task(void *arg)
             do {
                 length = ETH_MAX_PACKET_SIZE;
                 do {
-                  buffer = heap_caps_aligned_alloc(4, length, MALLOC_CAP_DMA);
+                  buffer = heap_caps_aligned_alloc(4096, length, MALLOC_CAP_DMA);
                   if (!buffer) {
                     ESP_LOGI(TAG, "no mem for receive buffer, sleeping and trying again");
                     vTaskDelay(1);
@@ -345,6 +345,7 @@ static void emac_w5500_task(void *arg)
                 if (emac->parent.receive(&emac->parent, buffer, &length) == ESP_OK) {
                     /* pass the buffer to stack (e.g. TCP/IP layer) */
                     if (length) {
+                        buffer = heap_caps_realloc(buffer, length, MALLOC_CAP_DMA);
                         emac->eth->stack_input(emac->eth, buffer, length);
                     } else {
                         free(buffer);

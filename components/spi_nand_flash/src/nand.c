@@ -115,7 +115,7 @@ esp_err_t spi_nand_flash_init_device(spi_nand_flash_config_t *config, spi_nand_f
 
 fail:
   if ((*handle)->work_buffer != NULL) free((*handle)->work_buffer);
-  free(handle);
+  free(*handle);
   return ret;
 }
 

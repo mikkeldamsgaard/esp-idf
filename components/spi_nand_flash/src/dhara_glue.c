@@ -28,9 +28,6 @@ static const char *TAG="dhara_glue";
 esp_err_t wait_for_ready(spi_device_handle_t device, uint32_t expected_operation_time_us, uint8_t *status_out) {
   if (expected_operation_time_us < ROM_WAIT_THRESHOLD_US) esp_rom_delay_us(expected_operation_time_us);
 
-  uint32_t timeout = expected_operation_time_us*100;
-  int64_t start = esp_timer_get_time();
-
   while (true) {
     uint8_t status;
     ESP_RETURN_ON_ERROR(spi_nand_read_register(device, REG_STATUS, &status), TAG, "");
@@ -42,10 +39,6 @@ esp_err_t wait_for_ready(spi_device_handle_t device, uint32_t expected_operation
 
     if (expected_operation_time_us >= ROM_WAIT_THRESHOLD_US) {
       vTaskDelay(1);
-    }
-
-    if (esp_timer_get_time() - start > timeout) {
-      ESP_RETURN_ON_ERROR(ESP_ERR_TIMEOUT, TAG, "");
     }
   }
 

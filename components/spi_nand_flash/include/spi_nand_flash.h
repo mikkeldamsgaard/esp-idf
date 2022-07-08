@@ -24,15 +24,28 @@
 extern "C" {
 #endif
 
+/** @brief Structure to describe how to configure the nand access layer.
+
+ @note The spi device handle must be initialized with the flag SPI_DEVICE_HALFDUPLEX
+*/
 struct spi_nand_flash_config_t {
-  spi_device_handle_t device_handle;
-  uint8_t gc_factor; // Will default to 45 if set to 0
+  spi_device_handle_t device_handle;       ///< SPI Device for this nand chip.
+  uint8_t gc_factor;                       ///< The gc factor controls the number of blocks to spare block ratio.
+                                           ///< Lower values will reduce the available space but increase performance
 };
 typedef struct spi_nand_flash_config_t spi_nand_flash_config_t;
 
 struct spi_nand_flash_device_t;
 typedef struct spi_nand_flash_device_t spi_nand_flash_device_t;
 
+/** @brief Initialise SPI nand flash chip interface.
+ *
+ * This function must be called before any other API functions are called for this chip.
+ *
+ * @param config Pointer to SPI nand flash config structure
+ * @param[out] handle The handle is returned in this variable.
+ * @return ESP_OK on success, or a flash error code if initialisation fails.
+ */
 esp_err_t spi_nand_flash_init_device(spi_nand_flash_config_t *config, spi_nand_flash_device_t **handle);
 
 esp_err_t spi_nand_flash_read_sector(spi_nand_flash_device_t *handle, uint8_t *buffer, uint16_t sector_id);

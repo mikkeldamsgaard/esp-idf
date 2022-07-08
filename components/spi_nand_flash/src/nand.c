@@ -25,20 +25,102 @@ esp_err_t spi_nand_winbond_init(spi_nand_flash_device_t *dev) {
   uint8_t device_id_buf[2];
   spi_nand_transaction_t t = {
       .command = CMD_READ_ID,
-      .address = 0, // This normally selects the manufacturer id. Some chips ignores it, but still expects 8 dummy bits here
-      .address_bytes = 2,
+      .dummy_bits = 16,
       .miso_len = 2,
       .miso_data = device_id_buf
   };
   spi_nand_execute_transaction(dev->config.device_handle, &t);
   uint16_t device_id = (device_id_buf[0] << 8) + device_id_buf[1];
+  dev->read_page_delay_us = 10;
+  dev->erase_block_delay_us = 2500;
+  dev->program_page_delay_us = 320;
   switch (device_id) {
     case 0xAA20:
-        dev->dhara_nand.num_blocks = 512;
-        dev->read_page_delay_us = 10;
-        dev->erase_block_delay_us = 2500;
-        dev->program_page_delay_us = 320;
-        break;
+    case 0xBA20:
+      dev->dhara_nand.num_blocks = 512;
+      break;
+    case 0xAA21:
+    case 0xBA21:
+    case 0xBC21:
+      dev->dhara_nand.num_blocks = 1024;
+      break;
+    default:
+      return ESP_ERR_INVALID_RESPONSE;
+  }
+  return ESP_OK;
+}
+
+esp_err_t spi_nand_alliance_init(spi_nand_flash_device_t *dev) {
+  uint8_t device_id;
+  spi_nand_transaction_t t = {
+      .command = CMD_READ_ID,
+      .address = 1,
+      .address_bytes = 1,
+      .dummy_bits = 8,
+      .miso_len = 1,
+      .miso_data = &device_id
+  };
+  spi_nand_execute_transaction(dev->config.device_handle, &t);
+  dev->erase_block_delay_us = 3000;
+  dev->program_page_delay_us = 630;
+  switch (device_id) {
+    case 0x25: //AS5F31G04SND-08LIN
+      dev->dhara_nand.num_blocks = 1024;
+      dev->read_page_delay_us = 60;
+      break;
+    case 0x2E: //AS5F32G04SND-08LIN
+    case 0x8E: //AS5F12G04SND-10LIN
+      dev->dhara_nand.num_blocks = 2048;
+      dev->read_page_delay_us = 60;
+      break;
+    case 0x2F: //AS5F34G04SND-08LIN
+    case 0x8F: //AS5F14G04SND-10LIN
+      dev->dhara_nand.num_blocks = 4096;
+      dev->read_page_delay_us = 60;
+      break;
+    case 0x2D: //AS5F38G04SND-08LIN
+    case 0x8D: //AS5F18G04SND-10LIN
+      dev->dhara_nand.log2_page_size = 12; // 4k pages
+      dev->dhara_nand.num_blocks = 4096;
+      dev->read_page_delay_us = 130; // somewhat slower reads
+      break;
+    default:
+      return ESP_ERR_INVALID_RESPONSE;
+  }
+  return ESP_OK;
+}
+
+esp_err_t spi_nand_gigadevice_init(spi_nand_flash_device_t *dev) {
+  uint8_t device_id;
+  spi_nand_transaction_t t = {
+      .command = CMD_READ_ID,
+      .dummy_bits = 16,
+      .miso_len = 1,
+      .miso_data = &device_id
+  };
+  spi_nand_execute_transaction(dev->config.device_handle, &t);
+  dev->read_page_delay_us = 25;
+  dev->erase_block_delay_us = 3200;
+  dev->program_page_delay_us = 380;
+  switch (device_id) {
+    case 0x51:
+    case 0x41:
+    case 0x31:
+    case 0x21:
+      dev->dhara_nand.num_blocks = 1024;
+      break;
+    case 0x52:
+    case 0x42:
+    case 0x32:
+    case 0x22:
+      dev->dhara_nand.num_blocks = 2048;
+      break;
+    case 0x55:
+    case 0x45:
+    case 0x35:
+    case 0x25:
+      dev->dhara_nand.num_blocks = 4096;
+      break;
     default:
       return ESP_ERR_INVALID_RESPONSE;
   }
@@ -58,10 +140,11 @@ esp_err_t detect_chip(spi_nand_flash_device_t *dev) {
 
   switch (manufacturer_id) {
     case 0x52: // Alliance
-      return ESP_ERR_INVALID_RESPONSE;
-    case 0xEF:
+      return spi_nand_alliance_init(dev);
+    case 0xEF: // Winbond
       return spi_nand_winbond_init(dev);
-
+    case 0xC8: // GigaDevice
+      return spi_nand_gigadevice_init(dev);
     default:
       return ESP_ERR_INVALID_RESPONSE;
   }
@@ -92,7 +175,7 @@ esp_err_t spi_nand_flash_init_device(spi_nand_flash_config_t *config, spi_nand_f
   memcpy(&(*handle)->config, config, sizeof(spi_nand_flash_config_t));
 
   (*handle)->dhara_nand.log2_ppb = 6; // 64 pages per block is standard
-  (*handle)->dhara_nand.log2_page_size = 11;  // 2048 bytes per page is standard
+  (*handle)->dhara_nand.log2_page_size = 11;  // 2048 bytes per page is fairly standard
 
   esp_err_t ret = ESP_OK;
 

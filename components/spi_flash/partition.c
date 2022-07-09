@@ -212,7 +212,7 @@ static esp_err_t load_partitions(void)
 #endif
 
         // allocate new linked list item and populate it with data from partition table
-        partition_list_item_t* item = (partition_list_item_t*) heap_caps_calloc(sizeof(partition_list_item_t), 1, MALLOC_CAP_INTERNAL);
+        partition_list_item_t* item = (partition_list_item_t*) heap_caps_calloc(sizeof(partition_list_item_t), 1, MALLOC_CAP_DEFAULT | MALLOC_CAP_INTERNAL);
         if (item == NULL) {
             err = ESP_ERR_NO_MEM;
             break;

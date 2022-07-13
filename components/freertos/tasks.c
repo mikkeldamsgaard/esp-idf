@@ -860,8 +860,8 @@ void taskYIELD_OTHER_CORE( BaseType_t xCoreID, UBaseType_t uxPriority )
                 StackType_t * pxStack;
 
                 /* Allocate space for the stack used by the task being created. */
-            pxStack = pvPortMallocStackMem( ( ( ( size_t ) usStackDepth ) * sizeof( StackType_t ) ) ); /*lint !e9079 All values returned by pvPortMalloc() have at least the alignment required by the MCU's stack and this allocation is the stack. */
-                printf("[stack %s]: %08x %d\n", pcName?pcName:"", (uint32_t)pxStack, usStackDepth);
+                pxStack = pvPortMallocStackMem( ( ( ( size_t ) usStackDepth ) * sizeof( StackType_t ) ) ); /*lint !e9079 All values returned by pvPortMalloc() have at least the alignment required by the MCU's stack and this allocation is the stack. */
+                //printf("[stack %s]: %08x %d\n", pcName?pcName:"", (uint32_t)pxStack, usStackDepth);
                 if( pxStack != NULL )
                 {
                     /* Allocate space for the TCB. */

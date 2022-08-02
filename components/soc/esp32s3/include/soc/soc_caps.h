@@ -22,6 +22,7 @@
 #define SOC_CPU_CORES_NUM               2
 #define SOC_CACHE_SUPPORT_WRAP          1
 #define SOC_ULP_SUPPORTED               1
+#define SOC_RISCV_COPROC_SUPPORTED      1
 #define SOC_BT_SUPPORTED                1
 #define SOC_USB_OTG_SUPPORTED           1
 #define SOC_USB_SERIAL_JTAG_SUPPORTED   1
@@ -38,6 +39,7 @@
 #define SOC_FLASH_ENCRYPTION_XTS_AES_256 1
 #define SOC_PSRAM_DMA_CAPABLE           1
 #define SOC_XT_WDT_SUPPORTED            1
+#define SOC_TEMP_SENSOR_SUPPORTED       1
 
 /*-------------------------- SOC CAPS ----------------------------------------*/
 #define SOC_APPCPU_HAS_CLOCK_GATING_BUG (1)

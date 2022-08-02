@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2015-2021 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2015-2022 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -182,6 +182,12 @@ static bool s_adc_tsen_enabled = false;
 //in this mode, 2uA is saved, but RTC memory can't use at high temperature, and RTCIO can't be used as INPUT.
 static bool s_ultra_low_enabled = false;
 
+static bool s_periph_use_8m_flag = false;
+
+void esp_sleep_periph_use_8m(bool use_or_not)
+{
+    s_periph_use_8m_flag = use_or_not;
+}
 
 static uint32_t get_power_down_flags(void);
 #if SOC_PM_SUPPORT_EXT_WAKEUP
@@ -361,17 +367,8 @@ inline static void IRAM_ATTR misc_modules_wake_prepare(void)
 
 inline static uint32_t IRAM_ATTR call_rtc_sleep_start(uint32_t reject_triggers, uint32_t lslp_mem_inf_fpu);
 
-//TODO: IDF-4813
-bool esp_no_sleep = false;
-
 static uint32_t IRAM_ATTR esp_sleep_start(uint32_t pd_flags)
 {
-#if CONFIG_IDF_TARGET_ESP32S3
-    if (esp_no_sleep) {
-        ESP_EARLY_LOGE(TAG, "Sleep cannot be used with Touch/ULP for now.");
-        abort();
-    }
-#endif //CONFIG_IDF_TARGET_ESP32S3
     // Stop UART output so that output is not lost due to APB frequency change.
     // For light sleep, suspend UART output — it will resume after wakeup.
     // For deep sleep, wait for the contents of UART FIFO to be sent.
@@ -390,10 +387,10 @@ static uint32_t IRAM_ATTR esp_sleep_start(uint32_t pd_flags)
     bool rtc_using_8md256 = false;
 #endif
     //Keep the RTC8M_CLK on if the ledc low-speed channel is clocked by RTC8M_CLK in lightsleep mode
-    bool dig_8m_enabled = !deep_sleep && rtc_dig_8m_enabled();
+    bool periph_using_8m = !deep_sleep && s_periph_use_8m_flag;
 
     //Override user-configured power modes.
-    if (rtc_using_8md256 || dig_8m_enabled) {
+    if (rtc_using_8md256 || periph_using_8m) {
         pd_flags &= ~RTC_SLEEP_PD_INT_8M;
     }
 
@@ -474,7 +471,7 @@ static uint32_t IRAM_ATTR esp_sleep_start(uint32_t pd_flags)
     if (!s_ultra_low_enabled) {
         sleep_flags |= RTC_SLEEP_NO_ULTRA_LOW;
     }
-    if (rtc_dig_8m_enabled()) {
+    if (periph_using_8m) {
         sleep_flags |= RTC_SLEEP_DIG_USE_8M;
     }
 
@@ -833,7 +830,7 @@ esp_err_t esp_sleep_disable_wakeup_source(esp_sleep_source_t source)
     } else if (CHECK_SOURCE(source, ESP_SLEEP_WAKEUP_UART, (RTC_UART0_TRIG_EN | RTC_UART1_TRIG_EN))) {
         s_config.wakeup_triggers &= ~(RTC_UART0_TRIG_EN | RTC_UART1_TRIG_EN);
     }
-#if defined(CONFIG_ESP32_ULP_COPROC_ENABLED) || defined(CONFIG_ESP32S2_ULP_COPROC_ENABLED)
+#if defined(CONFIG_ESP32_ULP_COPROC_ENABLED) || defined(CONFIG_ESP32S2_ULP_COPROC_ENABLED) || defined(CONFIG_ESP32S3_ULP_COPROC_ENABLED)
     else if (CHECK_SOURCE(source, ESP_SLEEP_WAKEUP_ULP, RTC_ULP_TRIG_EN)) {
         s_config.wakeup_triggers &= ~RTC_ULP_TRIG_EN;
     }
@@ -863,8 +860,13 @@ esp_err_t esp_sleep_enable_ulp_wakeup(void)
     return ESP_ERR_INVALID_STATE;
 #endif // CONFIG_ESP32_ULP_COPROC_ENABLED
 #elif CONFIG_IDF_TARGET_ESP32S2 || CONFIG_IDF_TARGET_ESP32S3
-    s_config.wakeup_triggers |= (RTC_ULP_TRIG_EN | RTC_COCPU_TRIG_EN | RTC_COCPU_TRAP_TRIG_EN);
+#if CONFIG_ESP32S2_ULP_COPROC_RISCV || CONFIG_ESP32S3_ULP_COPROC_RISCV
+    s_config.wakeup_triggers |= (RTC_COCPU_TRIG_EN | RTC_COCPU_TRAP_TRIG_EN);
     return ESP_OK;
+#else // ULP_FSM
+    s_config.wakeup_triggers |= (RTC_ULP_TRIG_EN);
+    return ESP_OK;
+#endif //ESP32S2_ULP_COPROC_RISCV || ESP32S3_ULP_COPROC_RISCV
 #else
     return ESP_ERR_NOT_SUPPORTED;
 #endif
@@ -1203,7 +1205,7 @@ esp_sleep_wakeup_cause_t esp_sleep_get_wakeup_cause(void)
     } else if (wakeup_cause & RTC_BT_TRIG_EN) {
         return ESP_SLEEP_WAKEUP_BT;
 #endif
-#if CONFIG_IDF_TARGET_ESP32S2
+#if SOC_RISCV_COPROC_SUPPORTED
     } else if (wakeup_cause & RTC_COCPU_TRIG_EN) {
         return ESP_SLEEP_WAKEUP_ULP;
     } else if (wakeup_cause & RTC_COCPU_TRAP_TRIG_EN) {

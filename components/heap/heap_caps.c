@@ -97,7 +97,7 @@ bool heap_caps_match(const heap_t *heap, uint32_t caps)
 This function should not be called directly as it does not
 check for failure / call heap_caps_alloc_failed()
 */
-IRAM_ATTR static void *heap_caps_malloc_base( size_t size, uint32_t caps)
+IRAM_ATTR static void *heap_caps_malloc_base_( size_t size, uint32_t caps)
 {
     void *ret = NULL;
 
@@ -162,7 +162,24 @@ IRAM_ATTR static void *heap_caps_malloc_base( size_t size, uint32_t caps)
     return NULL;
 }
 
+#define MALLOC_DISABLE_EXTERNAL_ALLOCS -1
+//Dual-use: -1 (=MALLOC_DISABLE_EXTERNAL_ALLOCS) disables allocations in external memory, >=0 sets the limit for allocations preferring internal memory.
+static int malloc_alwaysinternal_limit=MALLOC_DISABLE_EXTERNAL_ALLOCS;
 
+void heap_caps_malloc_extmem_enable(size_t limit)
+{
+  malloc_alwaysinternal_limit=limit;
+}
+
+//#include "esp_debug_helpers.h"
+IRAM_ATTR static inline void *heap_caps_malloc_base( size_t size, uint32_t caps) {
+  void *res = heap_caps_malloc_base_(size, caps);
+//  if (!(((intptr_t)res) >= SOC_EXTRAM_DATA_LOW && ((intptr_t)res) < SOC_EXTRAM_DATA_HIGH) && size > malloc_alwaysinternal_limit) {
+//    //ESP_EARLY_LOGI("HC","%d, %x", size, caps);
+//    //if (!(caps & MALLOC_CAP_DMA)) esp_backtrace_print(8);
+//  }
+  return res;
+}
 /*
 Routine to allocate a bit of memory with certain capabilities. caps is a bitfield of MALLOC_CAP_* bits.
 */
@@ -178,14 +195,6 @@ IRAM_ATTR void *heap_caps_malloc( size_t size, uint32_t caps){
 }
 
 
-#define MALLOC_DISABLE_EXTERNAL_ALLOCS -1
-//Dual-use: -1 (=MALLOC_DISABLE_EXTERNAL_ALLOCS) disables allocations in external memory, >=0 sets the limit for allocations preferring internal memory.
-static int malloc_alwaysinternal_limit=MALLOC_DISABLE_EXTERNAL_ALLOCS;
-
-void heap_caps_malloc_extmem_enable(size_t limit)
-{
-    malloc_alwaysinternal_limit=limit;
-}
 
 /*
  Default memory allocation implementation. Should return standard 8-bit memory. malloc() essentially resolves to this function.

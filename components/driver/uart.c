@@ -605,35 +605,29 @@ esp_err_t uart_disable_tx_intr(uart_port_t uart_num)
 
 esp_err_t uart_enable_tx_intr(uart_port_t uart_num, int enable, int thresh)
 {
+    if (enable == 0) {
+        return uart_disable_tx_intr(uart_num);
+    }
     ESP_RETURN_ON_FALSE((uart_num < UART_NUM_MAX), ESP_FAIL, UART_TAG, "uart_num error");
     ESP_RETURN_ON_FALSE((thresh < SOC_UART_FIFO_LEN), ESP_FAIL, UART_TAG, "empty intr threshold error");
-    if (enable == 0) {
-        UART_ENTER_CRITICAL(&(uart_context[uart_num].spinlock));
-        uart_hal_disable_intr_mask(&(uart_context[uart_num].hal), UART_INTR_TXFIFO_EMPTY);
-        UART_EXIT_CRITICAL(&(uart_context[uart_num].spinlock));
-    } else {
-        uart_hal_clr_intsts_mask(&(uart_context[uart_num].hal), UART_INTR_TXFIFO_EMPTY);
-        UART_ENTER_CRITICAL(&(uart_context[uart_num].spinlock));
-        uart_hal_set_txfifo_empty_thr(&(uart_context[uart_num].hal), thresh);
-        uart_hal_ena_intr_mask(&(uart_context[uart_num].hal), UART_INTR_TXFIFO_EMPTY);
-        UART_EXIT_CRITICAL(&(uart_context[uart_num].spinlock));
-    }
+    uart_hal_clr_intsts_mask(&(uart_context[uart_num].hal), UART_INTR_TXFIFO_EMPTY);
+    UART_ENTER_CRITICAL(&(uart_context[uart_num].spinlock));
+    uart_hal_set_txfifo_empty_thr(&(uart_context[uart_num].hal), thresh);
+    uart_hal_ena_intr_mask(&(uart_context[uart_num].hal), UART_INTR_TXFIFO_EMPTY);
+    UART_EXIT_CRITICAL(&(uart_context[uart_num].spinlock));
     return ESP_OK;
 }
 
 esp_err_t uart_isr_register(uart_port_t uart_num, void (*fn)(void *), void *arg, int intr_alloc_flags,  uart_isr_handle_t *handle)
 {
     int ret;
-    uart_isr_handle_t rethandle;
     ESP_RETURN_ON_FALSE((uart_num < UART_NUM_MAX), ESP_FAIL, UART_TAG, "uart_num error");
-    ret = esp_intr_alloc(uart_periph_signal[uart_num].irq, intr_alloc_flags, fn, arg, &rethandle);
+    UART_ENTER_CRITICAL(&(uart_context[uart_num].spinlock));
+    ret = esp_intr_alloc(uart_periph_signal[uart_num].irq, intr_alloc_flags, fn, arg, handle);
     if (ret == ESP_OK) {
-        p_uart_obj[uart_num]->intr_handle = rethandle;
-
-        if (handle != NULL) {
-            *handle = rethandle;
-        }
+        p_uart_obj[uart_num]->intr_handle = *handle;
     }
+    UART_EXIT_CRITICAL(&(uart_context[uart_num].spinlock));
     return ret;
 }
 
@@ -1182,7 +1176,7 @@ int uart_tx_chars(uart_port_t uart_num, const char *buffer, uint32_t len)
     return tx_len;
 }
 
-static int uart_tx_all(uart_port_t uart_num, bool write_all, const char *src, size_t size, bool brk_en, int brk_len)
+static int uart_tx_all(uart_port_t uart_num, const char *src, size_t size, bool brk_en, int brk_len)
 {
     if (size == 0) {
         return 0;
@@ -1194,16 +1188,6 @@ static int uart_tx_all(uart_port_t uart_num, bool write_all, const char *src, si
     p_uart_obj[uart_num]->coll_det_flg = false;
     if (p_uart_obj[uart_num]->tx_buf_size > 0) {
         size_t max_size = xRingbufferGetMaxItemSize(p_uart_obj[uart_num]->tx_ring_buf);
-        if(!write_all) {
-            size_t max_free = xRingbufferGetCurFreeSize(p_uart_obj[uart_num]->tx_ring_buf);
-            if(max_free < sizeof(uart_tx_data_t)) {
-                xSemaphoreGive(p_uart_obj[uart_num]->tx_mux);
-                return 0;  // Not even enough space to send the control structure.
-            }
-            max_free -= sizeof(uart_tx_data_t);
-            max_size = max_size < max_free ? max_size : max_free;
-            size = size > max_size ? max_size : size;
-        }
         int offset = 0;
         uart_tx_data_t evt;
         evt.tx_data.size = size;
@@ -1233,11 +1217,8 @@ static int uart_tx_all(uart_port_t uart_num, bool write_all, const char *src, si
                 size -= sent;
                 src += sent;
             }
-            if (!write_all) {
-                break;
-            }
         }
-        if (brk_en && size == 0) {
+        if (brk_en) {
             uart_hal_clr_intsts_mask(&(uart_context[uart_num].hal), UART_INTR_TX_BRK_DONE);
             UART_ENTER_CRITICAL(&(uart_context[uart_num].spinlock));
             uart_hal_tx_break(&(uart_context[uart_num].hal), brk_len);
@@ -1248,7 +1229,7 @@ static int uart_tx_all(uart_port_t uart_num, bool write_all, const char *src, si
         xSemaphoreGive(p_uart_obj[uart_num]->tx_fifo_sem);
     }
     xSemaphoreGive(p_uart_obj[uart_num]->tx_mux);
-    return original_size - size;
+    return original_size;
 }
 
 int uart_write_bytes(uart_port_t uart_num, const void *src, size_t size)
@@ -1256,7 +1237,7 @@ int uart_write_bytes(uart_port_t uart_num, const void *src, size_t size)
     ESP_RETURN_ON_FALSE((uart_num < UART_NUM_MAX), (-1), UART_TAG, "uart_num error");
     ESP_RETURN_ON_FALSE((p_uart_obj[uart_num] != NULL), (-1), UART_TAG, "uart driver error");
     ESP_RETURN_ON_FALSE(src, (-1), UART_TAG, "buffer null");
-    return uart_tx_all(uart_num, true, src, size, 0, 0);
+    return uart_tx_all(uart_num, src, size, 0, 0);
 }
 
 int uart_write_bytes_with_break(uart_port_t uart_num, const void *src, size_t size, int brk_len)
@@ -1266,7 +1247,7 @@ int uart_write_bytes_with_break(uart_port_t uart_num, const void *src, size_t si
     ESP_RETURN_ON_FALSE((size > 0), (-1), UART_TAG, "uart size error");
     ESP_RETURN_ON_FALSE((src), (-1), UART_TAG, "uart data null");
     ESP_RETURN_ON_FALSE((brk_len > 0 && brk_len < 256), (-1), UART_TAG, "break_num error");
-    return uart_tx_all(uart_num, true, src, size, 1, brk_len);
+    return uart_tx_all(uart_num, src, size, 1, brk_len);
 }
 
 int uart_write_bytes_non_blocking(uart_port_t uart_num, const void* src, size_t size)
@@ -1274,7 +1255,7 @@ int uart_write_bytes_non_blocking(uart_port_t uart_num, const void* src, size_t 
     ESP_RETURN_ON_FALSE((uart_num < UART_NUM_MAX), (-1), UART_TAG, "uart_num error");
     ESP_RETURN_ON_FALSE((p_uart_obj[uart_num] != NULL), (-1), UART_TAG, "uart driver error");
     ESP_RETURN_ON_FALSE(src, (-1), UART_TAG, "buffer null");
-    return uart_tx_all(uart_num, false, src, size, 0, 0);
+    return uart_tx_all(uart_num, src, size, 0, 0);
 }
 
 int uart_write_bytes_with_break_non_blocking(uart_port_t uart_num, const void* src, size_t size, int brk_len)
@@ -1284,7 +1265,7 @@ int uart_write_bytes_with_break_non_blocking(uart_port_t uart_num, const void* s
     ESP_RETURN_ON_FALSE((size > 0), (-1), UART_TAG, "uart size error");
     ESP_RETURN_ON_FALSE((src), (-1), UART_TAG, "uart data null");
     ESP_RETURN_ON_FALSE((brk_len > 0 && brk_len < 256), (-1), UART_TAG, "break_num error");
-    return uart_tx_all(uart_num, false, src, size, 1, brk_len);
+    return uart_tx_all(uart_num, src, size, 1, brk_len);
 }
 
 static bool uart_check_buf_full(uart_port_t uart_num)

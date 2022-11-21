@@ -337,9 +337,14 @@ static void emac_w5500_task(void *arg)
                     ESP_LOGE(TAG, "no mem for receive buffer");
                     break;
                 } else if (emac->parent.receive(&emac->parent, buffer, &length) == ESP_OK) {
-                    /* pass the buffer to stack (e.g. TCP/IP layer) */
                     if (length) {
-                        emac->eth->stack_input(emac->eth, buffer, length);
+                        // Reallocate to something more sensible
+                        uint8_t *data = heap_caps_malloc(length, MALLOC_CAP_SPIRAM);
+                        memcpy(data, buffer, length);
+                        free(buffer);
+
+                        /* pass the buffer to stack (e.g. TCP/IP layer) */
+                        emac->eth->stack_input(emac->eth, data, length);
                     } else {
                         free(buffer);
                     }

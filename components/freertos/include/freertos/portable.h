@@ -197,7 +197,12 @@ size_t xPortGetMinimumEverFreeHeapSize( void ) PRIVILEGED_FUNCTION;
  * non-FreeRTOS-specific code, and behave the same as
  * pvPortMalloc()/vPortFree().
  */
-#define pvPortMalloc malloc
+#if FREERTOS_PLACE_FUNCTIONS_INTO_FLASH == n
+  #define pvPortMalloc(x) heap_caps_malloc((x),MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT)
+#else
+  #define pvPortMalloc malloc
+#endif
+
 #define vPortFree free
 #define xPortGetFreeHeapSize esp_get_free_heap_size
 #define xPortGetMinimumEverFreeHeapSize esp_get_minimum_free_heap_size

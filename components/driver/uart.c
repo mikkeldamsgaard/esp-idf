@@ -52,7 +52,7 @@
 static const char *UART_TAG = "uart";
 
 #define UART_EMPTY_THRESH_DEFAULT       (10)
-#define UART_FULL_THRESH_DEFAULT        (120)
+#define UART_FULL_THRESH_DEFAULT        (70)
 #define UART_TOUT_THRESH_DEFAULT        (10)
 #define UART_CLKDIV_FRAG_BIT_WIDTH      (3)
 #define UART_TX_IDLE_NUM_DEFAULT        (0)

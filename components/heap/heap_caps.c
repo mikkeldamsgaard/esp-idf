@@ -162,16 +162,20 @@ IRAM_ATTR static void *heap_caps_malloc_base( size_t size, uint32_t caps)
     return NULL;
 }
 
-
 /*
 Routine to allocate a bit of memory with certain capabilities. caps is a bitfield of MALLOC_CAP_* bits.
 */
-IRAM_ATTR void *heap_caps_malloc( size_t size, uint32_t caps){
+IRAM_ATTR void *heap_caps_malloc(size_t size, uint32_t caps){
 
     void* ptr = heap_caps_malloc_base(size, caps);
 
-    if (!ptr){
-        heap_caps_alloc_failed(size, caps, __func__);
+    if (!ptr) {
+        void toit_gc();
+        toit_gc();
+        ptr = heap_caps_malloc_base(size, caps);
+        if (!ptr) {
+          heap_caps_alloc_failed(size, caps, __func__);
+        }
     }
 
     return ptr;

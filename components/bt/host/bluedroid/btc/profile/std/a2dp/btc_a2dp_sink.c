@@ -120,7 +120,7 @@ typedef struct {
     osi_thread_t        *btc_aa_snk_task_hdl;
     OI_CODEC_SBC_DECODER_CONTEXT    context;
     OI_UINT32           contextData[CODEC_DATA_WORDS(2, SBC_CODEC_FAST_FILTER_BUFFERS)];
-    OI_INT16            pcmData[15 * SBC_MAX_SAMPLES_PER_FRAME * SBC_MAX_CHANNELS];
+    OI_INT16            pcmData[ SBC_MAX_SAMPLES_PER_FRAME * SBC_MAX_CHANNELS];
     a2dp_sink_media_pkt_seq_num_t   media_pkt_seq_num;
 } a2dp_sink_local_param_t;
 
@@ -574,22 +574,25 @@ static void btc_a2dp_sink_handle_inc_media(tBT_SBC_HDR *p_msg)
     APPL_TRACE_DEBUG("Number of sbc frames %d, frame_len %d\n", num_sbc_frames, sbc_frame_len);
 
     for (count = 0; count < num_sbc_frames && sbc_frame_len != 0; count ++) {
-        pcmBytes = availPcmBytes;
+        pcmBytes = sizeof(a2dp_sink_local_param.pcmData);
         status = OI_CODEC_SBC_DecodeFrame(&a2dp_sink_local_param.context, (const OI_BYTE **)&sbc_start_frame,
                                           (OI_UINT32 *)&sbc_frame_len,
-                                          (OI_INT16 *)pcmDataPointer,
+                                          (OI_INT16 *)a2dp_sink_local_param.pcmData,
                                           (OI_UINT32 *)&pcmBytes);
         if (!OI_SUCCESS(status)) {
             APPL_TRACE_ERROR("Decoding failure: %d\n", status);
             break;
         }
-        availPcmBytes -= pcmBytes;
-        pcmDataPointer += pcmBytes / 2;
+        btc_a2d_data_cb_to_app((uint8_t *)pcmDataPointer, pcmBytes);
+//        availPcmBytes -= pcmBytes;
+//        pcmDataPointer += pcmBytes / 2;
         p_msg->offset += (p_msg->len - 1) - sbc_frame_len;
         p_msg->len = sbc_frame_len + 1;
+
+        //printf("count: %d, num_frames: %d, availPcmBytes: %d\n", count, num_sbc_frames, availPcmBytes);
     }
 
-    btc_a2d_data_cb_to_app((uint8_t *)a2dp_sink_local_param.pcmData, (sizeof(a2dp_sink_local_param.pcmData) - availPcmBytes));
+    //btc_a2d_data_cb_to_app((uint8_t *)a2dp_sink_local_param.pcmData, (sizeof(a2dp_sink_local_param.pcmData) - availPcmBytes));
 }
 
 /*******************************************************************************
@@ -738,9 +741,10 @@ static void btc_a2dp_sink_thread_init(UNUSED_ATTR void *context)
 
     btc_a2dp_sink_state = BTC_A2DP_SINK_STATE_ON;
     if (!a2dp_sink_local_param.btc_aa_snk_cb.post_sem) {
+        printf("!!a2dp_sink_local_param.btc_aa_snk_cb.post_sem: 1, 1\n");
         osi_sem_new(&a2dp_sink_local_param.btc_aa_snk_cb.post_sem, 1, 1);
     }
-    a2dp_sink_local_param.btc_aa_snk_cb.RxSbcQ = fixed_queue_new(QUEUE_SIZE_MAX);
+    a2dp_sink_local_param.btc_aa_snk_cb.RxSbcQ = fixed_queue_new(10);
 
     btc_a2dp_control_init();
 }

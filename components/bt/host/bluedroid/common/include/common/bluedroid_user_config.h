@@ -10,6 +10,7 @@
 /* All the configuration from SDK defined here */
 #include "bt_common.h"
 #include "bt_user_config.h"
+#include "soc/soc_caps.h"
 
 /**********************************************************
  * Thread/Task reference
@@ -94,6 +95,13 @@
 #define UC_BT_SSP_ENABLED                   FALSE
 #endif
 
+//BQB(BT)
+#ifdef CONFIG_BT_CLASSIC_BQB_ENABLED
+#define UC_BT_CLASSIC_BQB_ENABLED           CONFIG_BT_CLASSIC_BQB_ENABLED
+#else
+#define UC_BT_CLASSIC_BQB_ENABLED           FALSE
+#endif
+
 //BLE
 #ifdef CONFIG_BT_BLE_ENABLED
 #define UC_BT_BLE_ENABLED                   CONFIG_BT_BLE_ENABLED
@@ -104,7 +112,11 @@
 #ifdef CONFIG_BT_BLE_RPA_SUPPORTED
 #define UC_BT_BLE_RPA_SUPPORTED            CONFIG_BT_BLE_RPA_SUPPORTED
 #else
+#if SOC_BLE_DEVICE_PRIVACY_SUPPORTED
+#define UC_BT_BLE_RPA_SUPPORTED            TRUE
+#else
 #define UC_BT_BLE_RPA_SUPPORTED            FALSE
+#endif
 #endif
 
 #ifdef CONFIG_BT_BLE_50_FEATURES_SUPPORTED

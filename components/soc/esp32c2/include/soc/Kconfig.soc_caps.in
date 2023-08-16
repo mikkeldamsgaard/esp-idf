@@ -237,7 +237,7 @@ config SOC_I2C_NUM
 
 config SOC_I2C_FIFO_LEN
     int
-    default 32
+    default 16
 
 config SOC_I2C_SUPPORT_HW_CLR_BUS
     bool
@@ -565,7 +565,7 @@ config SOC_WIFI_HW_TSF
 
 config SOC_WIFI_FTM_SUPPORT
     bool
-    default n
+    default y
 
 config SOC_WIFI_GCMP_SUPPORT
     bool
@@ -596,5 +596,13 @@ config SOC_ESP_NIMBLE_CONTROLLER
     default y
 
 config SOC_BLE_50_SUPPORTED
+    bool
+    default y
+
+config SOC_BLE_DEVICE_PRIVACY_SUPPORTED
+    bool
+    default y
+
+config SOC_PHY_IMPROVE_RX_11B
     bool
     default y

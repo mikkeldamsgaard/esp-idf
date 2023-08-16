@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2015-2021 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2015-2023 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -82,7 +82,7 @@ extern "C" {
 #define ESP_ERR_WIFI_STOP_STATE  (ESP_ERR_WIFI_BASE + 20)  /*!< Returned when WiFi is stopping */
 #define ESP_ERR_WIFI_NOT_ASSOC   (ESP_ERR_WIFI_BASE + 21)  /*!< The WiFi connection is not associated */
 #define ESP_ERR_WIFI_TX_DISALLOW (ESP_ERR_WIFI_BASE + 22)  /*!< The WiFi TX is disallowed */
-
+#define ESP_ERR_WIFI_DISCARD     (ESP_ERR_WIFI_BASE + 23)  /*!< Discard frame */
 /**
  * @brief WiFi stack configuration parameters passed to esp_wifi_init call.
  */
@@ -578,7 +578,7 @@ esp_err_t esp_wifi_get_bandwidth(wifi_interface_t ifx, wifi_bandwidth_t *bw);
 /**
   * @brief     Set primary/secondary channel of ESP32
   *
-  * @attention 1. This API should be called after esp_wifi_start()
+  * @attention 1. This API should be called after esp_wifi_start() and before esp_wifi_stop()
   * @attention 2. When ESP32 is in STA mode, this API should not be called when STA is scanning or connecting to an external AP
   * @attention 3. When ESP32 is in softAP mode, this API should not be called when softAP has connected to external STAs
   * @attention 4. When ESP32 is in STA+softAP mode, this API should not be called when in the scenarios described above
@@ -593,6 +593,7 @@ esp_err_t esp_wifi_get_bandwidth(wifi_interface_t ifx, wifi_bandwidth_t *bw);
   *    - ESP_ERR_WIFI_NOT_INIT: WiFi is not initialized by esp_wifi_init
   *    - ESP_ERR_WIFI_IF: invalid interface
   *    - ESP_ERR_INVALID_ARG: invalid argument
+  *    - ESP_ERR_WIFI_NOT_STARTED: WiFi is not started by esp_wifi_start
   */
 esp_err_t esp_wifi_set_channel(uint8_t primary, wifi_second_chan_t second);
 
@@ -618,7 +619,7 @@ esp_err_t esp_wifi_get_channel(uint8_t *primary, wifi_second_chan_t *second);
   *               it's up to the user to fill in all fields according to local regulations.
   *               Please use esp_wifi_set_country_code instead.
   * @attention 2. The default country is "01" (world safe mode) {.cc="01", .schan=1, .nchan=11, .policy=WIFI_COUNTRY_POLICY_AUTO}.
-  * @attention 3. The third octect of country code string is one of the following: ' ', 'O', 'I', 'X', otherwise it is considered as ' '.
+  * @attention 3. The third octet of country code string is one of the following: ' ', 'O', 'I', 'X', otherwise it is considered as ' '.
   * @attention 4. When the country policy is WIFI_COUNTRY_POLICY_AUTO, the country info of the AP to which
   *               the station is connected is used. E.g. if the configured country info is {.cc="US", .schan=1, .nchan=11}
   *               and the country info of the AP to which the station is connected is {.cc="JP", .schan=1, .nchan=14}
@@ -1146,6 +1147,7 @@ esp_err_t esp_wifi_set_inactive_time(wifi_interface_t ifx, uint16_t sec);
   * @return
   *    - ESP_OK: succeed
   *    - ESP_ERR_WIFI_NOT_INIT: WiFi is not initialized by esp_wifi_init
+  *    - ESP_ERR_WIFI_NOT_STARTED: WiFi is not started by esp_wifi_start
   *    - ESP_ERR_WIFI_ARG: invalid argument
   */
 esp_err_t esp_wifi_get_inactive_time(wifi_interface_t ifx, uint16_t *sec);
@@ -1268,7 +1270,7 @@ esp_err_t esp_wifi_connectionless_module_set_wake_interval(uint16_t wake_interva
   *
   * @attention 7. When country code "01" (world safe mode) is set, SoftAP mode won't contain country IE.
   * @attention 8. The default country is "01" (world safe mode) and ieee80211d_enabled is TRUE.
-  * @attention 9. The third octect of country code string is one of the following: ' ', 'O', 'I', 'X', otherwise it is considered as ' '.
+  * @attention 9. The third octet of country code string is one of the following: ' ', 'O', 'I', 'X', otherwise it is considered as ' '.
   *
   * @param     country   the configured country ISO code
   * @param     ieee80211d_enabled   802.11d is enabled or not
@@ -1318,6 +1320,44 @@ esp_err_t esp_wifi_config_80211_tx_rate(wifi_interface_t ifx, wifi_phy_rate_t ra
   *    - others: failed
   */
 esp_err_t esp_wifi_disable_pmf_config(wifi_interface_t ifx);
+
+/**
+  * @brief     Get the Association id assigned to STA by AP
+  *
+  * @param[out] aid  store the aid
+  *
+  * @attention aid = 0 if station is not connected to AP.
+  *
+  * @return
+  *    - ESP_OK: succeed
+  */
+esp_err_t esp_wifi_sta_get_aid(uint16_t *aid);
+
+/**
+  * @brief     Get the negotiated phymode after connection.
+  *
+  * @param[out] phymode  store the negotiated phymode.
+  *
+  * @attention Operation phy mode, BIT[5]: indicate whether LR enabled, BIT[0-4]: wifi_phy_mode_t
+  *
+  * @return
+  *    - ESP_OK: succeed
+  */
+esp_err_t esp_wifi_sta_get_negotiated_phymode(wifi_phy_mode_t *phymode);
+
+/**
+  * @brief      Get the rssi info after station connected to AP
+  *
+  * @attention  This API should be called after station connected to AP.
+  *
+  * @param      rssi store the rssi info received from last beacon.
+  *
+  * @return
+  *    - ESP_OK: succeed
+  *    - ESP_ERR_INVALID_ARG: invalid argument
+  *    - ESP_FAIL: failed
+  */
+esp_err_t esp_wifi_sta_get_rssi(int *rssi);
 
 #ifdef __cplusplus
 }

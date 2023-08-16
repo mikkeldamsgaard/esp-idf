@@ -396,7 +396,7 @@ esp_err_t gdma_set_transfer_ability(gdma_channel_handle_t dma_chan, const gdma_t
 
     dma_chan->sram_alignment = sram_alignment;
     dma_chan->psram_alignment = psram_alignment;
-    ESP_LOGD(TAG, "%s channel (%d,%d), (%zu:%zu) bytes aligned, burst %s", dma_chan->direction == GDMA_CHANNEL_DIRECTION_TX ? "tx" : "rx",
+    ESP_LOGD(TAG, "%s channel (%d,%d), (%u:%u) bytes aligned, burst %s", dma_chan->direction == GDMA_CHANNEL_DIRECTION_TX ? "tx" : "rx",
              group->group_id, pair->pair_id, sram_alignment, psram_alignment, en_burst ? "enabled" : "disabled");
 err:
     return ret;
@@ -759,7 +759,7 @@ static void IRAM_ATTR gdma_default_rx_isr(void *args)
     gdma_ll_rx_clear_interrupt_status(group->hal.dev, pair->pair_id, intr_status);
 
     if (intr_status & GDMA_LL_EVENT_RX_SUC_EOF) {
-        if (rx_chan && rx_chan->on_recv_eof) {
+        if (rx_chan->on_recv_eof) {
             uint32_t eof_addr = gdma_ll_rx_get_success_eof_desc_addr(group->hal.dev, pair->pair_id);
             gdma_event_data_t edata = {
                 .rx_eof_desc_addr = eof_addr

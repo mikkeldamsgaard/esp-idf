@@ -31,6 +31,7 @@
 #include "soc/soc_caps.h"
 #include "regi2c_ctrl.h"    //For `REGI2C_ANA_CALI_PD_WORKAROUND`, temp
 
+#include "hal/cache_hal.h"
 #include "hal/wdt_hal.h"
 #include "hal/rtc_hal.h"
 #include "hal/uart_hal.h"
@@ -49,6 +50,7 @@
 #include "esp_private/esp_clk.h"
 #include "esp_private/startup_internal.h"
 #include "esp_private/esp_task_wdt.h"
+#include "esp_private/sar_periph_ctrl.h"
 
 #ifdef CONFIG_IDF_TARGET_ESP32
 #include "esp32/rom/cache.h"
@@ -312,8 +314,12 @@ static void IRAM_ATTR flush_uarts(void)
     }
 }
 
-static void IRAM_ATTR suspend_uarts(void)
+/**
+ * Suspend enabled uarts and return suspended uarts bit map
+ */
+static uint32_t IRAM_ATTR suspend_uarts(void)
 {
+    uint32_t suspended_uarts_bmap = 0;
     for (int i = 0; i < SOC_UART_NUM; ++i) {
 #ifndef CONFIG_IDF_TARGET_ESP32
         if (!periph_ll_periph_enabled(PERIPH_UART0_MODULE + i)) {
@@ -321,6 +327,7 @@ static void IRAM_ATTR suspend_uarts(void)
         }
 #endif
         uart_ll_force_xoff(i);
+        suspended_uarts_bmap |= BIT(i);
 #if SOC_UART_SUPPORT_FSM_TX_WAIT_SEND
         uint32_t uart_fsm = 0;
         do {
@@ -330,37 +337,51 @@ static void IRAM_ATTR suspend_uarts(void)
         while (uart_ll_get_fsm_status(i) != 0) {}
 #endif
     }
+    return suspended_uarts_bmap;
 }
 
-static void IRAM_ATTR resume_uarts(void)
+static void IRAM_ATTR resume_uarts(uint32_t uarts_resume_bmap)
 {
     for (int i = 0; i < SOC_UART_NUM; ++i) {
-#ifndef CONFIG_IDF_TARGET_ESP32
-        if (!periph_ll_periph_enabled(PERIPH_UART0_MODULE + i)) {
-            continue;
+        if (uarts_resume_bmap & 0x1) {
+            uart_ll_force_xon(i);
         }
-#endif
-        uart_ll_force_xon(i);
+        uarts_resume_bmap >>= 1;
     }
 }
 
 /**
  * These save-restore workaround should be moved to lower layer
  */
-inline static void IRAM_ATTR misc_modules_sleep_prepare(void)
+inline static void IRAM_ATTR misc_modules_sleep_prepare(bool deep_sleep)
 {
+    if (deep_sleep) {
+        extern bool esp_phy_is_initialized(void);
+        if (esp_phy_is_initialized()) {
+            extern void phy_close_rf(void);
+            phy_close_rf();
+#if !CONFIG_IDF_TARGET_ESP32
+            extern void phy_xpd_tsens(void);
+            phy_xpd_tsens();
+#endif
+        }
+    } else {
 #if CONFIG_MAC_BB_PD
-    mac_bb_power_down_cb_execute();
+        mac_bb_power_down_cb_execute();
 #endif
 #if CONFIG_GPIO_ESP32_SUPPORT_SWITCH_SLP_PULL
-    gpio_sleep_mode_config_apply();
+        gpio_sleep_mode_config_apply();
 #endif
 #if SOC_PM_SUPPORT_CPU_PD || SOC_PM_SUPPORT_TAGMEM_PD
-    sleep_enable_memory_retention();
+        sleep_enable_memory_retention();
 #endif
 #if REGI2C_ANA_CALI_PD_WORKAROUND
-    regi2c_analog_cali_reg_read();
+        regi2c_analog_cali_reg_read();
 #endif
+    }
+    if (!(deep_sleep && s_adc_tsen_enabled)) {
+        sar_periph_ctrl_power_disable();
+    }
 }
 
 /**
@@ -368,6 +389,7 @@ inline static void IRAM_ATTR misc_modules_sleep_prepare(void)
  */
 inline static void IRAM_ATTR misc_modules_wake_prepare(void)
 {
+    sar_periph_ctrl_power_enable();
 #if SOC_PM_SUPPORT_CPU_PD || SOC_PM_SUPPORT_TAGMEM_PD
     sleep_disable_memory_retention();
 #endif
@@ -395,11 +417,12 @@ static uint32_t IRAM_ATTR esp_sleep_start(uint32_t pd_flags)
     // For light sleep, suspend UART output — it will resume after wakeup.
     // For deep sleep, wait for the contents of UART FIFO to be sent.
     bool deep_sleep = pd_flags & RTC_SLEEP_PD_DIG;
+    uint32_t suspended_uarts_bmap = 0;
 
     if (deep_sleep) {
         flush_uarts();
     } else {
-        suspend_uarts();
+        suspended_uarts_bmap = suspend_uarts();
     }
 
 #if SOC_RTC_SLOW_CLOCK_SUPPORT_8MD256
@@ -453,15 +476,7 @@ static uint32_t IRAM_ATTR esp_sleep_start(uint32_t pd_flags)
     }
 #endif
 
-    if (deep_sleep) {
-        extern bool esp_phy_is_initialized(void);
-        if (esp_phy_is_initialized()){
-            extern void phy_close_rf(void);
-            phy_close_rf();
-        }
-    } else {
-        misc_modules_sleep_prepare();
-    }
+    misc_modules_sleep_prepare(deep_sleep);
 
 #if CONFIG_IDF_TARGET_ESP32S2 || CONFIG_IDF_TARGET_ESP32S3
     if (deep_sleep) {
@@ -555,7 +570,11 @@ static uint32_t IRAM_ATTR esp_sleep_start(uint32_t pd_flags)
 #endif
 #endif // SOC_PM_SUPPORT_DEEPSLEEP_CHECK_STUB_ONLY
     } else {
+        /* Wait cache idle in cache suspend to avoid cache load wrong data after spi io isolation */
+        cache_hal_suspend(CACHE_TYPE_ALL);
         result = call_rtc_sleep_start(reject_triggers, config.lslp_mem_inf_fpu);
+        /* Resume cache for continue running */
+        cache_hal_resume(CACHE_TYPE_ALL);
     }
 
 #if CONFIG_ESP_SLEEP_SYSTIMER_STALL_WORKAROUND
@@ -569,7 +588,9 @@ static uint32_t IRAM_ATTR esp_sleep_start(uint32_t pd_flags)
 
 #if SOC_SPI_MEM_SUPPORT_TIME_TUNING
     // Restore mspi clock freq
-    spi_timing_change_speed_mode_cache_safe(false);
+   if (cpu_freq_config.source == SOC_CPU_CLK_SRC_PLL) {
+        spi_timing_change_speed_mode_cache_safe(false);
+    }
 #endif
 
     if (!deep_sleep) {
@@ -578,7 +599,7 @@ static uint32_t IRAM_ATTR esp_sleep_start(uint32_t pd_flags)
     }
 
     // re-enable UART output
-    resume_uarts();
+    resume_uarts(suspended_uarts_bmap);
 
     return result;
 }
@@ -1131,7 +1152,7 @@ static void ext1_wakeup_prepare(void)
 
     // Clear state from previous wakeup
     rtc_hal_ext1_clear_wakeup_status();
-    // Set RTC IO pins and mode (any high, all low) to be used for wakeup
+    // Set RTC IO pins and mode to be used for wakeup
     rtc_hal_ext1_set_wakeup_pins(s_config.ext1_rtc_gpio_mask, s_config.ext1_trigger_mode);
 }
 
@@ -1289,11 +1310,7 @@ esp_sleep_wakeup_cause_t esp_sleep_get_wakeup_cause(void)
         return ESP_SLEEP_WAKEUP_UNDEFINED;
     }
 
-#ifdef CONFIG_IDF_TARGET_ESP32
-    uint32_t wakeup_cause = REG_GET_FIELD(RTC_CNTL_WAKEUP_STATE_REG, RTC_CNTL_WAKEUP_CAUSE);
-#else
-    uint32_t wakeup_cause = REG_GET_FIELD(RTC_CNTL_SLP_WAKEUP_CAUSE_REG, RTC_CNTL_WAKEUP_CAUSE);
-#endif
+    uint32_t wakeup_cause = rtc_cntl_ll_get_wakeup_cause();
 
     if (wakeup_cause & RTC_TIMER_TRIG_EN) {
         return ESP_SLEEP_WAKEUP_TIMER;
@@ -1480,7 +1497,13 @@ static uint32_t get_power_down_flags(void)
     return pd_flags;
 }
 
-void esp_deep_sleep_disable_rom_logging(void)
+#if CONFIG_IDF_TARGET_ESP32
+/* APP core of esp32 can't access to RTC FAST MEMORY, do not define it with RTC_IRAM_ATTR */
+void
+#else
+void RTC_IRAM_ATTR
+#endif
+esp_deep_sleep_disable_rom_logging(void)
 {
     rtc_suppress_rom_log();
 }

@@ -1242,7 +1242,7 @@ API :cpp:func:`esp_wifi_set_config()` 可用于配置 station。配置的参数�
    * - bssid
      - 只有当 bssid_set 为 1 时有效。见字段 “bssid_set”。
    * - channel
-     - 该字段为 0 时，station 扫描信道 1 ~ N 寻找目标 AP；否则，station 首先扫描值与 “channel” 字段相同的信道，再扫描其他信道。如果您不知道目标 AP 在哪个信道，请将该字段设置为 0。
+     - 该字段为 0 时，station 扫描信道 1 ~ N 寻找目标 AP；否则，station 首先扫描值与 “channel” 字段相同的信道，再扫描其他信道。比如，当该字段设置为 3 时，扫描顺序为 3，1，2，...，N 。如果您不知道目标 AP 在哪个信道，请将该字段设置为 0。
    * - sort_method
      - 该字段仅用于 WIFI_ALL_CHANNEL_SCAN 模式。
 
@@ -1620,7 +1620,7 @@ WPA2-Enterprise 是企业无线网络的安全认证机制。在连接到接入�
 
 请参考 IDF 示例程序 :idf_file:`examples/wifi/roaming/README.md` 来设置和使用这些 API。示例代码只演示了如何使用这些 API，应用程序应根据需要定义自己的算法和案例。
 
-.. only:: esp32s2 or esp32c3
+.. only:: SOC_WIFI_FTM_SUPPORT
 
     Wi-Fi Location
     -------------------------------
@@ -2057,9 +2057,9 @@ Wi-Fi 多根天线配置
 
  - 配置 antenna_selects 连接哪些 GPIOs，例如，如果支持四根天线，且 GPIO20/GPIO21 连接到 antenna_select[0]/antenna_select[1]，配置如下所示::
 
-     wifi_ant_gpio_config_t config = {
-         { .gpio_select = 1, .gpio_num = 20 },
-         { .gpio_select = 1, .gpio_num = 21 }
+     wifi_ant_gpio_config_t ant_gpio_config = {
+         .gpio_cfg[0] = { .gpio_select = 1, .gpio_num = 20 },
+         .gpio_cfg[1] = { .gpio_select = 1, .gpio_num = 21 }
      };
  - 配置使能哪些天线、以及接收/发送数据如何使用使能的天线，例如，如果使能了天线 1 和天线 3，接收数据需要自动选择较好的天线，并将天线 1 作为默认天线，发送数据始终选择天线 3。配置如下所示::
 

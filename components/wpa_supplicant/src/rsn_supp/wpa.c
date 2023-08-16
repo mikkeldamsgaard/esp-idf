@@ -52,7 +52,7 @@
 struct wpa_sm gWpaSm;
 /* fix buf for tx for now */
 #define WPA_TX_MSG_BUFF_MAXLEN 200
-#define MIN_DH_LEN 4
+#define MIN_DH_LEN(len) (len < 4)
 
 #define ASSOC_IE_LEN 24 + 2 + PMKID_LEN + RSN_SELECTOR_LEN
 #define MAX_EAPOL_RETRIES 3
@@ -108,6 +108,12 @@ wifi_cipher_type_t cipher_type_map_supp_to_public(unsigned wpa_cipher)
 
     case WPA_CIPHER_SMS4:
         return WIFI_CIPHER_TYPE_SMS4;
+
+    case WPA_CIPHER_GCMP:
+        return WIFI_CIPHER_TYPE_GCMP;
+
+    case WPA_CIPHER_GCMP_256:
+        return WIFI_CIPHER_TYPE_GCMP256;
 
     default:
         return WIFI_CIPHER_TYPE_UNKNOWN;
@@ -2744,6 +2750,12 @@ void eapol_txcb(void *eb)
         case WPA_FIRST_HALF_4WAY_HANDSHAKE:
             break;
         case WPA_LAST_HALF_4WAY_HANDSHAKE:
+
+            if (esp_wifi_eb_tx_status_success_internal(eb) != true) {
+                wpa_printf(MSG_ERROR, "Eapol message 4/4 tx failure, not installing keys");
+                return;
+            }
+
             if (sm->txcb_flags & WPA_4_4_HANDSHAKE_BIT) {
                 sm->txcb_flags &= ~WPA_4_4_HANDSHAKE_BIT;
                 isdeauth = wpa_supplicant_send_4_of_4_txcallback(sm);
@@ -2949,12 +2961,21 @@ int owe_process_assoc_resp(const u8 *rsn_ie, size_t rsn_len, const uint8_t *dh_i
     if (rsn_ie && rsn_len && wpa_parse_wpa_ie_rsn(rsn_ie, rsn_len + 2, parsed_rsn_data) != 0) {
         goto fail;
     }
-    if (!dh_ie || dh_len < MIN_DH_LEN || parsed_rsn_data->num_pmkid == 0) {
-        wpa_printf(MSG_ERROR, "OWE: Invalid parameter");
+
+    if (dh_ie && MIN_DH_LEN(dh_len)) {
+        wpa_printf(MSG_ERROR, "OWE: Invalid Diffie Hellman IE");
+        goto fail;
+    }
+
+    if (!dh_ie && parsed_rsn_data->num_pmkid == 0) {
+        wpa_printf(MSG_ERROR, "OWE: Assoc response should either have pmkid or DH IE");
         goto fail;
     }
 
     if (!sm->cur_pmksa) { /* No PMK caching */
+        if (dh_ie == NULL) {
+            goto fail;
+        }
         dh_len += 2;
 
         dh_ie += 3;

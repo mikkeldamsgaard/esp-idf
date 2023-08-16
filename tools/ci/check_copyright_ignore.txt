@@ -417,7 +417,6 @@ components/esp32/include/rom/spi_flash.h
 components/esp32/include/rom/tbconsole.h
 components/esp32/include/rom/tjpgd.h
 components/esp32/include/rom/uart.h
-components/esp_eth/src/dm9051.h
 components/esp_eth/src/ksz8851.h
 components/esp_eth/src/w5500.h
 components/esp_eth/test_apps/component_ut_test.py
@@ -467,7 +466,6 @@ components/esp_phy/src/phy_init_esp32hxx.c
 components/esp_phy/test/test_phy_rtc.c
 components/esp_pm/include/esp_private/pm_impl.h
 components/esp_pm/include/esp_private/pm_trace.h
-components/esp_pm/pm_locks.c
 components/esp_pm/test/test_pm.c
 components/esp_rom/esp32/ld/esp32.rom.api.ld
 components/esp_rom/esp32/ld/esp32.rom.eco3.ld
@@ -526,9 +524,7 @@ components/esp_rom/include/esp32c3/rom/digital_signature.h
 components/esp_rom/include/esp32c3/rom/esp_flash.h
 components/esp_rom/include/esp32c3/rom/ets_sys.h
 components/esp_rom/include/esp32c3/rom/hmac.h
-components/esp_rom/include/esp32c3/rom/libc_stubs.h
 components/esp_rom/include/esp32c3/rom/md5_hash.h
-components/esp_rom/include/esp32c3/rom/rom_layout.h
 components/esp_rom/include/esp32c3/rom/rsa_pss.h
 components/esp_rom/include/esp32c3/rom/sha.h
 components/esp_rom/include/esp32c3/rom/tjpgd.h
@@ -542,7 +538,6 @@ components/esp_rom/include/esp32h2/rom/digital_signature.h
 components/esp_rom/include/esp32h2/rom/esp_flash.h
 components/esp_rom/include/esp32h2/rom/ets_sys.h
 components/esp_rom/include/esp32h2/rom/hmac.h
-components/esp_rom/include/esp32h2/rom/libc_stubs.h
 components/esp_rom/include/esp32h2/rom/md5_hash.h
 components/esp_rom/include/esp32h2/rom/rsa_pss.h
 components/esp_rom/include/esp32h2/rom/sha.h
@@ -579,10 +574,8 @@ components/esp_rom/include/esp32s3/rom/crc.h
 components/esp_rom/include/esp32s3/rom/digital_signature.h
 components/esp_rom/include/esp32s3/rom/ets_sys.h
 components/esp_rom/include/esp32s3/rom/hmac.h
-components/esp_rom/include/esp32s3/rom/libc_stubs.h
 components/esp_rom/include/esp32s3/rom/md5_hash.h
 components/esp_rom/include/esp32s3/rom/opi_flash.h
-components/esp_rom/include/esp32s3/rom/rom_layout.h
 components/esp_rom/include/esp32s3/rom/rsa_pss.h
 components/esp_rom/include/esp32s3/rom/sha.h
 components/esp_rom/include/esp32s3/rom/tjpgd.h
@@ -623,7 +616,6 @@ components/esp_system/include/esp_expression_with_stack.h
 components/esp_system/include/esp_freertos_hooks.h
 components/esp_system/include/esp_int_wdt.h
 components/esp_system/include/esp_private/dbg_stubs.h
-components/esp_system/include/esp_private/panic_internal.h
 components/esp_system/port/arch/riscv/expression_with_stack.c
 components/esp_system/port/arch/xtensa/expression_with_stack.c
 components/esp_system/port/public_compat/brownout.h

@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2022 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2022-2023 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -211,8 +211,9 @@ esp_err_t rmt_new_tx_channel(const rmt_tx_channel_config_t *config, rmt_channel_
                       ESP_ERR_INVALID_ARG, err, TAG, "mem_block_symbols must be even and at least %d", SOC_RMT_MEM_WORDS_PER_CHANNEL);
 #if SOC_RMT_SUPPORT_DMA
     // we only support 2 nodes ping-pong, if the configured memory block size needs more than two DMA descriptors, should treat it as invalid
-    ESP_GOTO_ON_FALSE(config->mem_block_symbols <= RMT_DMA_DESC_BUF_MAX_SIZE * RMT_DMA_NODES_PING_PONG, ESP_ERR_INVALID_ARG, err, TAG,
-                      "mem_block_symbols can't exceed %d", RMT_DMA_DESC_BUF_MAX_SIZE * RMT_DMA_NODES_PING_PONG);
+    ESP_GOTO_ON_FALSE(config->mem_block_symbols <= RMT_DMA_DESC_BUF_MAX_SIZE * RMT_DMA_NODES_PING_PONG / sizeof(rmt_symbol_word_t),
+                      ESP_ERR_INVALID_ARG, err, TAG, "mem_block_symbols can't exceed %d",
+                      RMT_DMA_DESC_BUF_MAX_SIZE * RMT_DMA_NODES_PING_PONG / sizeof(rmt_symbol_word_t));
 #else
     ESP_GOTO_ON_FALSE(config->flags.with_dma == 0, ESP_ERR_NOT_SUPPORTED, err, TAG, "DMA not supported");
 #endif
@@ -277,7 +278,7 @@ esp_err_t rmt_new_tx_channel(const rmt_tx_channel_config_t *config, rmt_channel_
     tx_channel->base.gpio_num = config->gpio_num;
     gpio_config_t gpio_conf = {
         .intr_type = GPIO_INTR_DISABLE,
-        // also enable the input path is `io_loop_back` is on, this is useful for bi-directional buses
+        // also enable the input path if `io_loop_back` is on, this is useful for bi-directional buses
         .mode = (config->flags.io_od_mode ? GPIO_MODE_OUTPUT_OD : GPIO_MODE_OUTPUT) | (config->flags.io_loop_back ? GPIO_MODE_INPUT : 0),
         .pull_down_en = false,
         .pull_up_en = true,
@@ -566,7 +567,7 @@ static void IRAM_ATTR rmt_tx_mark_eof(rmt_tx_channel_t *tx_chan)
 
 static size_t IRAM_ATTR rmt_encode_check_result(rmt_tx_channel_t *tx_chan, rmt_tx_trans_desc_t *t)
 {
-    rmt_encode_state_t encode_state = 0;
+    rmt_encode_state_t encode_state = RMT_ENCODING_RESET;
     rmt_encoder_handle_t encoder = t->encoder;
     size_t encoded_symbols = encoder->encode(encoder, &tx_chan->base, t->payload, t->payload_bytes, &encode_state);
     if (encode_state & RMT_ENCODING_COMPLETE) {

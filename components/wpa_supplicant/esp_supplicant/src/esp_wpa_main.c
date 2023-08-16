@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2019-2022 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2019-2023 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -182,7 +182,14 @@ void wpa_ap_get_peer_spp_msg(void *sm_data, bool *spp_cap, bool *spp_req)
 
 bool  wpa_deattach(void)
 {
-    esp_wifi_sta_wpa2_ent_disable();
+    struct wpa_sm *sm = &gWpaSm;
+    if (sm->wpa_sm_wpa2_ent_disable) {
+        sm->wpa_sm_wpa2_ent_disable();
+    }
+    if (sm->wpa_sm_wps_disable) {
+        sm->wpa_sm_wps_disable();
+    }
+
     wpa_sm_deinit();
     return true;
 }
@@ -207,7 +214,7 @@ int wpa_sta_connect(uint8_t *bssid)
 
 void wpa_config_done(void)
 {
-    /* used in future for setting scan and assoc IEs */
+    esp_set_scan_ie();
 }
 
 int wpa_parse_wpa_ie_wrapper(const u8 *wpa_ie, size_t wpa_ie_len, wifi_wpa_ie_t *data)
@@ -226,6 +233,11 @@ int wpa_parse_wpa_ie_wrapper(const u8 *wpa_ie, size_t wpa_ie_len, wifi_wpa_ie_t 
     data->rsnxe_capa = ie.rsnxe_capa;
 
     return ret;
+}
+
+static void wpa_sta_connected_cb(uint8_t *bssid)
+{
+    supplicant_sta_conn_handler(bssid);
 }
 
 static void wpa_sta_disconnected_cb(uint8_t reason_code)
@@ -250,6 +262,8 @@ static void wpa_sta_disconnected_cb(uint8_t reason_code)
 #ifdef CONFIG_OWE_STA
     owe_deinit();
 #endif /* CONFIG_OWE_STA */
+
+    supplicant_sta_disconn_handler();
 }
 
 #ifdef CONFIG_ESP_WIFI_SOFTAP_SUPPORT
@@ -326,6 +340,7 @@ int esp_supplicant_init(void)
     wpa_cb->wpa_sta_deinit     = wpa_deattach;
     wpa_cb->wpa_sta_rx_eapol   = wpa_sm_rx_eapol;
     wpa_cb->wpa_sta_connect    = wpa_sta_connect;
+    wpa_cb->wpa_sta_connected_cb    = wpa_sta_connected_cb;
     wpa_cb->wpa_sta_disconnected_cb = wpa_sta_disconnected_cb;
     wpa_cb->wpa_sta_in_4way_handshake = wpa_sta_in_4way_handshake;
 
@@ -369,6 +384,7 @@ int esp_supplicant_init(void)
 int esp_supplicant_deinit(void)
 {
     esp_supplicant_common_deinit();
+    esp_supplicant_unset_all_appie();
     eloop_destroy();
     wpa_cb = NULL;
     return esp_wifi_unregister_wpa_cb_internal();

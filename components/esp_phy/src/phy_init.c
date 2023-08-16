@@ -250,6 +250,10 @@ void esp_phy_enable(void)
         else {
             phy_wakeup_init();
             phy_digital_regs_load();
+
+#if CONFIG_ESP_PHY_IMPROVE_RX_11B
+            phy_improve_rx_special(true);
+#endif
         }
 
 #if CONFIG_IDF_TARGET_ESP32
@@ -724,7 +728,7 @@ void esp_phy_load_cal_and_init(void)
 #endif
 
 #ifdef CONFIG_ESP_PHY_CALIBRATION_AND_DATA_STORAGE
-    esp_phy_calibration_mode_t calibration_mode = PHY_RF_CAL_PARTIAL;
+    esp_phy_calibration_mode_t calibration_mode = CONFIG_ESP_PHY_CALIBRATION_MODE;
     uint8_t sta_mac[6];
     if (esp_rom_get_reset_reason(0) == RESET_REASON_CORE_DEEP_SLEEP) {
         calibration_mode = PHY_RF_CAL_NONE;
@@ -750,6 +754,11 @@ void esp_phy_load_cal_and_init(void)
     }
 #else
     register_chipv7_phy(init_data, cal_data, PHY_RF_CAL_FULL);
+#endif
+
+#if CONFIG_ESP_PHY_IMPROVE_RX_11B
+    ESP_LOGW(TAG, "PHY enable improve rx 11b");
+    phy_improve_rx_special(true);
 #endif
 
 #if CONFIG_ESP_PHY_REDUCE_TX_POWER

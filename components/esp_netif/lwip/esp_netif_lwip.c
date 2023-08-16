@@ -9,8 +9,8 @@
 #include <lwip/sockets.h>
 
 #include "esp_check.h"
-#include "esp_netif_lwip_internal.h"
 #include "lwip/esp_netif_net_stack.h"
+#include "esp_netif_lwip_internal.h"
 
 
 #include "esp_netif.h"
@@ -174,7 +174,9 @@ static void dns_clear_servers(bool keep_fallback)
 static void netif_send_garp(void *arg)
 {
     struct netif *netif = arg;
-    etharp_gratuitous(netif);
+    if (!ip4_addr_cmp(netif_ip4_addr(netif), IP4_ADDR_ANY4)) {  // Send GARP requests only if we have a valid IP
+        etharp_gratuitous(netif);
+    }
     sys_timeout(CONFIG_LWIP_GARP_TMR_INTERVAL*1000, netif_send_garp, netif);
 }
 
@@ -1168,8 +1170,12 @@ esp_err_t esp_netif_transmit_wrap(esp_netif_t *esp_netif, void *data, size_t len
 
 esp_err_t esp_netif_receive(esp_netif_t *esp_netif, void *buffer, size_t len, void *eb)
 {
+#ifdef CONFIG_ESP_NETIF_RECEIVE_REPORT_ERRORS
+    return esp_netif->lwip_input_fn(esp_netif->netif_handle, buffer, len, eb);
+#else
     esp_netif->lwip_input_fn(esp_netif->netif_handle, buffer, len, eb);
     return ESP_OK;
+#endif
 }
 
 static esp_err_t esp_netif_start_ip_lost_timer(esp_netif_t *esp_netif);

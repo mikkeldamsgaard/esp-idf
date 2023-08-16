@@ -86,10 +86,11 @@ esp_err_t mcpwm_new_generator(mcpwm_oper_handle_t oper, const mcpwm_generator_co
     // GPIO configuration
     gpio_config_t gpio_conf = {
         .intr_type = GPIO_INTR_DISABLE,
-        .mode = GPIO_MODE_OUTPUT | (config->flags.io_loop_back ? GPIO_MODE_INPUT : 0), // also enable the input path if `io_loop_back` is enabled
+        // also enable the input path if `io_loop_back` is enabled
+        .mode = (config->flags.io_od_mode ? GPIO_MODE_OUTPUT_OD : GPIO_MODE_OUTPUT) | (config->flags.io_loop_back ? GPIO_MODE_INPUT : 0),
         .pin_bit_mask = (1ULL << config->gen_gpio_num),
-        .pull_down_en = false,
-        .pull_up_en = true,
+        .pull_down_en = config->flags.pull_down,
+        .pull_up_en = config->flags.pull_up,
     };
     ESP_GOTO_ON_ERROR(gpio_config(&gpio_conf), err, TAG, "config gen GPIO failed");
     esp_rom_gpio_connect_out_signal(config->gen_gpio_num,
@@ -267,6 +268,36 @@ esp_err_t mcpwm_generator_set_dead_time(mcpwm_gen_handle_t in_generator, mcpwm_g
     mcpwm_group_t *group = oper->group;
     mcpwm_hal_context_t *hal = &group->hal;
     int oper_id = oper->oper_id;
+
+    // one delay module can only be used by one generator at a time
+    bool delay_module_conflict = false;
+    portENTER_CRITICAL(&oper->spinlock);
+    if (config->posedge_delay_ticks) {
+        if (oper->posedge_delay_owner && oper->posedge_delay_owner != in_generator) {
+            delay_module_conflict = true;
+        }
+    }
+    if (config->negedge_delay_ticks) {
+        if (oper->negedge_delay_owner && oper->negedge_delay_owner != in_generator) {
+            delay_module_conflict = true;
+        }
+    }
+    if (!delay_module_conflict) {
+        if (config->posedge_delay_ticks) {
+            // set owner if delay module is used
+            oper->posedge_delay_owner = in_generator;
+        } else if (oper->posedge_delay_owner == in_generator) {
+            // clear owner if delay module is previously used by in_generator, but now it is not used
+            oper->posedge_delay_owner = NULL;
+        }
+        if (config->negedge_delay_ticks) {
+            oper->negedge_delay_owner = in_generator;
+        } else if (oper->negedge_delay_owner == in_generator) {
+            oper->negedge_delay_owner = NULL;
+        }
+    }
+    portEXIT_CRITICAL(&oper->spinlock);
+    ESP_RETURN_ON_FALSE(!delay_module_conflict, ESP_ERR_INVALID_STATE, TAG, "delay module is in use by other generator");
 
     // Note: to better understand the following code, you should read the deadtime module topology diagram in the TRM
     // check if we want to bypass the deadtime module

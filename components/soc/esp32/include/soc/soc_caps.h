@@ -133,7 +133,8 @@
 
 
 /*-------------------------- CACHE/MMU CAPS ----------------------------------*/
-#define SOC_SHARED_IDCACHE_SUPPORTED            1   //Shared Cache for both instructions and data
+#define SOC_SHARED_IDCACHE_SUPPORTED            1   //Shared Cache for both instructions and data within one core
+#define SOC_IDCACHE_PER_CORE                    1   //Independent Cache unit pre core
 #define SOC_MMU_LINEAR_ADDRESS_REGION_NUM       5
 
 
@@ -385,3 +386,4 @@
 #define SOC_BLE_SUPPORTED               (1)    /*!< Support Bluetooth Low Energy hardware */
 #define SOC_BLE_MESH_SUPPORTED          (1)    /*!< Support BLE MESH */
 #define SOC_BT_CLASSIC_SUPPORTED        (1)    /*!< Support Bluetooth Classic hardware */
+#define SOC_BLE_DEVICE_PRIVACY_SUPPORTED (0)   /*!< Support BLE device privacy mode */

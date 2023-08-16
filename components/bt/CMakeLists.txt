@@ -14,8 +14,8 @@ if(CONFIG_BT_ENABLED)
         list(APPEND include_dirs include/esp32c3/include)
 
     elseif(CONFIG_IDF_TARGET_ESP32S3)
-        list(APPEND srcs "controller/esp32s3/bt.c")
-        list(APPEND include_dirs include/esp32s3/include)
+        list(APPEND srcs "controller/esp32c3/bt.c")
+        list(APPEND include_dirs include/esp32c3/include)
 
     elseif(CONFIG_IDF_TARGET_ESP32H2)
         list(APPEND srcs "controller/esp32h2/bt.c")
@@ -522,6 +522,7 @@ if(CONFIG_BT_ENABLED)
                     host/nimble/nimble/nimble/host/services/dis/include
                     host/nimble/nimble/nimble/host/services/gap/include
                     host/nimble/nimble/nimble/host/services/gatt/include
+                    host/nimble/nimble/nimble/host/services/htp/include
                     host/nimble/nimble/nimble/host/services/ias/include
                     host/nimble/nimble/nimble/host/services/ipss/include
                     host/nimble/nimble/nimble/host/services/lls/include
@@ -537,6 +538,7 @@ if(CONFIG_BT_ENABLED)
                     "host/nimble/nimble/nimble/host/services/ias/src/ble_svc_ias.c"
                     "host/nimble/nimble/nimble/host/services/ipss/src/ble_svc_ipss.c"
                     "host/nimble/nimble/nimble/host/services/ans/src/ble_svc_ans.c"
+                    "host/nimble/nimble/nimble/host/services/htp/src/ble_svc_htp.c"
                     "host/nimble/nimble/nimble/host/services/gap/src/ble_svc_gap.c"
                     "host/nimble/nimble/nimble/host/services/bas/src/ble_svc_bas.c"
                     "host/nimble/nimble/nimble/host/services/dis/src/ble_svc_dis.c"

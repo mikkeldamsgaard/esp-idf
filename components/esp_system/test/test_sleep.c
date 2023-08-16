@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2019-2022 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2019-2023 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -400,7 +400,11 @@ TEST_CASE("wake up using ext1 when RTC_PERIPH is off (13 low)", "[deepsleep][ign
 {
     // This test needs external pullup
     ESP_ERROR_CHECK(rtc_gpio_init(GPIO_NUM_13));
+#if CONFIG_IDF_TARGET_ESP32
     ESP_ERROR_CHECK(esp_sleep_enable_ext1_wakeup(BIT(GPIO_NUM_13), ESP_EXT1_WAKEUP_ALL_LOW));
+#else
+    ESP_ERROR_CHECK(esp_sleep_enable_ext1_wakeup(BIT(GPIO_NUM_13), ESP_EXT1_WAKEUP_ANY_LOW));
+#endif
     esp_deep_sleep_start();
 }
 
@@ -420,7 +424,11 @@ TEST_CASE("wake up using ext1 when RTC_PERIPH is on (13 low)", "[deepsleep][igno
     ESP_ERROR_CHECK(gpio_pullup_en(GPIO_NUM_13));
     ESP_ERROR_CHECK(gpio_pulldown_dis(GPIO_NUM_13));
     ESP_ERROR_CHECK(esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_PERIPH, ESP_PD_OPTION_ON));
+#if CONFIG_IDF_TARGET_ESP32
     ESP_ERROR_CHECK(esp_sleep_enable_ext1_wakeup(BIT(GPIO_NUM_13), ESP_EXT1_WAKEUP_ALL_LOW));
+#else
+    ESP_ERROR_CHECK(esp_sleep_enable_ext1_wakeup(BIT(GPIO_NUM_13), ESP_EXT1_WAKEUP_ANY_LOW));
+#endif
     esp_deep_sleep_start();
 }
 #endif // SOC_PM_SUPPORT_EXT_WAKEUP
@@ -436,8 +444,7 @@ __attribute__((unused)) static float get_time_ms(void)
 
 __attribute__((unused)) static uint32_t get_cause(void)
 {
-    uint32_t wakeup_cause = REG_GET_FIELD(RTC_CNTL_WAKEUP_STATE_REG, \
-                                            RTC_CNTL_WAKEUP_CAUSE);
+    uint32_t wakeup_cause = rtc_cntl_ll_get_wakeup_cause();
     return wakeup_cause;
 }
 

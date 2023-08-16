@@ -1064,7 +1064,7 @@ The table below shows the reason-code defined in {IDF_TARGET_NAME}. The first co
    * - Reserved
      - 40 ~ 45
      - 40 ~ 45
-     - 
+     -
    * - PEER_INITIATED
      - 46
      - 46
@@ -1241,7 +1241,7 @@ API :cpp:func:`esp_wifi_set_config()` can be used to configure the station. And 
    * - bssid
      - This is valid only when bssid_set is 1; see field “bssid_set”.
    * - channel
-     - If the channel is 0, the station scans the channel 1 ~ N to search for the target AP; otherwise, the station starts by scanning the channel whose value is the same as that of the “channel” field, and then scans others to find the target AP. If you do not know which channel the target AP is running on, set it to 0.
+     - If the channel is 0, the station scans the channel 1 ~ N to search for the target AP; otherwise, the station starts by scanning the channel whose value is the same as that of the “channel” field, and then scans the channel 1 ~ N but skip the specific channel to find the target AP. For example, if the channel is 3, the scan order will be 3, 1, 2, 4,..., N. If you do not know which channel the target AP is running on, set it to 0.
    * - sort_method
      - This field is only for WIFI_ALL_CHANNEL_SCAN.
 
@@ -1620,7 +1620,7 @@ Current implementation of 802.11k includes support for beacon measurement report
 
 Refer ESP-IDF example :idf_file:`examples/wifi/roaming/README.md` to set up and use these APIs. Example code only demonstrates how these APIs can be used, and the application should define its own algorithm and cases as required.
 
-.. only:: esp32s2 or esp32c3
+.. only:: SOC_WIFI_FTM_SUPPORT
 
     Wi-Fi Location
     -------------------------------
@@ -2057,10 +2057,11 @@ Generally, following steps can be taken to configure the multiple antennas:
 
  - Configure which GPIOs are connected to the antenna_selects. For example, if four antennas are supported and GPIO20/GPIO21 are connected to antenna_select[0]/antenna_select[1], the configurations look like::
 
-     wifi_ant_gpio_config_t config = {
-         { .gpio_select = 1, .gpio_num = 20 },
-         { .gpio_select = 1, .gpio_num = 21 }
+     wifi_ant_gpio_config_t ant_gpio_config = {
+         .gpio_cfg[0] = { .gpio_select = 1, .gpio_num = 20 },
+         .gpio_cfg[1] = { .gpio_select = 1, .gpio_num = 21 }
      };
+     
  - Configure which antennas are enabled and how RX/TX use the enabled antennas. For example, if antenna1 and antenna3 are enabled, the RX needs to select the better antenna automatically and uses antenna1 as its default antenna, the TX always selects the antenna3. The configuration looks like::
 
      wifi_ant_config_t config = {

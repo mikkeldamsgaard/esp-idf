@@ -47,6 +47,7 @@ typedef struct {
     int int_gpio_num;
     uint8_t addr[6];
     bool packets_remain;
+    uint8_t* received_buffer;
 } emac_w5500_t;
 
 static inline bool w5500_lock(emac_w5500_t *emac)
@@ -314,8 +315,8 @@ static void emac_w5500_task(void *arg)
 {
     emac_w5500_t *emac = (emac_w5500_t *)arg;
     uint8_t status = 0;
-    uint8_t *buffer = NULL;
     uint32_t length = 0;
+
     while (1) {
         // check if the task receives any notification
         if (ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(1000)) == 0 &&    // if no notification ...
@@ -331,25 +332,15 @@ static void emac_w5500_task(void *arg)
             // clear interrupt status
             w5500_write(emac, W5500_REG_SOCK_IR(0), &status, sizeof(status));
             do {
-                length = ETH_MAX_PACKET_SIZE;
-                buffer = heap_caps_malloc(length, MALLOC_CAP_DMA);
-                if (!buffer) {
-                    ESP_LOGE(TAG, "no mem for receive buffer");
-                    break;
-                } else if (emac->parent.receive(&emac->parent, buffer, &length) == ESP_OK) {
+                if (emac->parent.receive(&emac->parent, emac->received_buffer, &length) == ESP_OK) {
                     if (length) {
                         // Reallocate to something more sensible
                         uint8_t *data = heap_caps_malloc(length, MALLOC_CAP_SPIRAM);
-                        memcpy(data, buffer, length);
-                        free(buffer);
+                        memcpy(data, emac->received_buffer, length);
 
                         /* pass the buffer to stack (e.g. TCP/IP layer) */
                         emac->eth->stack_input(emac->eth, data, length);
-                    } else {
-                        free(buffer);
                     }
-                } else {
-                    free(buffer);
                 }
             } while (emac->packets_remain);
         }
@@ -609,6 +600,9 @@ static esp_err_t emac_w5500_init(esp_eth_mac_t *mac)
     ESP_GOTO_ON_ERROR(w5500_verify_id(emac), err, TAG, "vefiry chip ID failed");
     /* default setup of internal registers */
     ESP_GOTO_ON_ERROR(w5500_setup_default(emac), err, TAG, "w5500 default setup failed");
+    emac->received_buffer = heap_caps_malloc(ETH_MAX_PACKET_SIZE, MALLOC_CAP_DMA);
+    if (!emac->received_buffer) ESP_GOTO_ON_ERROR(ESP_ERR_NO_MEM, err, TAG, "failed to allocated recieve buffer");
+
     return ESP_OK;
 err:
     gpio_isr_handler_remove(emac->int_gpio_num);
@@ -625,6 +619,7 @@ static esp_err_t emac_w5500_deinit(esp_eth_mac_t *mac)
     gpio_isr_handler_remove(emac->int_gpio_num);
     gpio_reset_pin(emac->int_gpio_num);
     eth->on_state_changed(eth, ETH_STATE_DEINIT, NULL);
+    free(emac->received_buffer);
     return ESP_OK;
 }
 

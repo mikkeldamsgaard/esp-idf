@@ -50,7 +50,7 @@ DRESULT ff_nand_read(BYTE pdrv, BYTE *buff, DWORD sector, UINT count) {
   return RES_OK;
 
 fail:
-  ESP_LOGE(TAG, "ff_nand_read failed with error 0x%X",ret);
+  ESP_LOGE(TAG, "ff_nand_read failed with error 0x%X", ret);
   return RES_ERROR;
 }
 

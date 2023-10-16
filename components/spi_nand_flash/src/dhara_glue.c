@@ -146,7 +146,7 @@ int dhara_nand_prog(const struct dhara_nand *n, dhara_page_t p, const uint8_t *d
 
   if ((status & STAT_PROGRAM_FAILED) != 0) {
     ESP_LOGD(TAG, "prog failed, page=%d,", p);
-    dhara_set_error(err,DHARA_E_BAD_BLOCK);
+    dhara_set_error(err, DHARA_E_BAD_BLOCK);
     return -1;
   }
 
@@ -185,7 +185,10 @@ int dhara_nand_read(const struct dhara_nand *n, dhara_page_t p, size_t offset, s
   esp_err_t ret;
   uint8_t status;
 
-  ESP_GOTO_ON_ERROR(read_page_and_wait(dev, p, &status), fail, TAG, "");
+  for (int i = 0; i < DHARA_MAX_RETRIES; i++) {
+    ESP_GOTO_ON_ERROR(read_page_and_wait(dev, p, &status), fail, TAG, "");
+    if (!is_ecc_error(status)) break;
+  }
 
   if (is_ecc_error(status)) {
     ESP_LOGD(TAG, "read ecc error, page=%d", p);
@@ -194,6 +197,9 @@ int dhara_nand_read(const struct dhara_nand *n, dhara_page_t p, size_t offset, s
   }
 
   ESP_GOTO_ON_ERROR(spi_nand_read(dev->config.device_handle, data, offset, length), fail, TAG, "");
+
+  // Store soft ECC errors
+  dhara_set_error(err, status & STAT_ECC0);
 
   return 0;
 fail:

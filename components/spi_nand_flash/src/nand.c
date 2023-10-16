@@ -14,6 +14,8 @@
 
 #include <esp_check.h>
 #include <string.h>
+#include "freertos/FreeRTOS.h"
+#include "freertos/semphr.h"
 #include "spi_nand_flash.h"
 #include "dhara/error.h"
 #include "spi_nand_oper.h"
@@ -189,6 +191,12 @@ esp_err_t spi_nand_flash_init_device(spi_nand_flash_config_t *config, spi_nand_f
 
   ESP_GOTO_ON_FALSE((*handle)->work_buffer != NULL,ESP_ERR_NO_MEM, fail, TAG, "nomem");
 
+  (*handle)->mutex = xSemaphoreCreateMutex();
+  if (!(*handle)->mutex) {
+    ret = ESP_ERR_NO_MEM;
+    goto fail;
+  }
+
   dhara_map_init(&(*handle)->dhara_map, &(*handle)->dhara_nand,(*handle)->work_buffer,config->gc_factor);
 
   dhara_error_t ignored;
@@ -198,6 +206,7 @@ esp_err_t spi_nand_flash_init_device(spi_nand_flash_config_t *config, spi_nand_f
 
 fail:
   if ((*handle)->work_buffer != NULL) free((*handle)->work_buffer);
+  if ((*handle)->mutex != NULL) vSemaphoreDelete((*handle)->mutex);
   free(*handle);
   return ret;
 }
@@ -205,46 +214,69 @@ fail:
 esp_err_t spi_nand_erase_chip(spi_nand_flash_device_t *handle) {
   ESP_LOGW(TAG, "Entire chip is being erased");
   esp_err_t ret;
+  xSemaphoreTake(handle->mutex, portMAX_DELAY);
 
   for (int i = 0; i < handle->num_blocks; i++) {
-    ESP_GOTO_ON_ERROR(spi_nand_write_enable(handle->config.device_handle), fail, TAG, "");
+    ESP_GOTO_ON_ERROR(spi_nand_write_enable(handle->config.device_handle), end, TAG, "");
     ESP_GOTO_ON_ERROR(spi_nand_erase_block(handle->config.device_handle, i * (1 << handle->dhara_nand.log2_ppb)),
-                      fail, TAG, "");
+                      end, TAG, "");
     ESP_GOTO_ON_ERROR(wait_for_ready(handle->config.device_handle, handle->erase_block_delay_us,NULL),
-                      fail, TAG, "");
+                      end, TAG, "");
   }
 
   // clear dhara map
   dhara_map_init(&handle->dhara_map, &handle->dhara_nand,handle->work_buffer,handle->config.gc_factor);
   dhara_map_clear(&handle->dhara_map);
 
-  return ESP_OK;
-fail:
+  ret = ESP_OK;
+
+end:
+  xSemaphoreGive(handle->mutex);
   return ret;
 }
 
 esp_err_t spi_nand_flash_read_sector(spi_nand_flash_device_t *handle, uint8_t *buffer, uint16_t sector_id) {
   dhara_error_t err;
-  if (dhara_map_read(&handle->dhara_map,sector_id, buffer, &err)) {
-    return ESP_ERR_FLASH_BASE + err;
+  esp_err_t ret = ESP_OK;
+  xSemaphoreTake(handle->mutex, portMAX_DELAY);
+
+  if (dhara_map_read(&handle->dhara_map, sector_id, buffer, &err)) {
+    ret = ESP_ERR_FLASH_BASE + err;
+  } else if (err) {
+    // This indicates a soft ECC error, we rewrite the sector to recover
+    if (dhara_map_write(&handle->dhara_map, sector_id, buffer, &err)) {
+      ret = ESP_ERR_FLASH_BASE + err;
+    }
   }
-  return ESP_OK;
+
+  xSemaphoreGive(handle->mutex);
+  return ret;
 }
 
 esp_err_t spi_nand_flash_write_sector(spi_nand_flash_device_t *handle, const uint8_t *buffer, uint16_t sector_id) {
   dhara_error_t err;
-  if (dhara_map_write(&handle->dhara_map,sector_id, buffer, &err)) {
-    return ESP_ERR_FLASH_BASE + err;
+  esp_err_t ret = ESP_OK;
+  xSemaphoreTake(handle->mutex, portMAX_DELAY);
+
+  if (dhara_map_write(&handle->dhara_map, sector_id, buffer, &err)) {
+    ret = ESP_ERR_FLASH_BASE + err;
   }
-  return ESP_OK;
+
+  xSemaphoreGive(handle->mutex);
+  return ret;
 }
 
 esp_err_t spi_nand_flash_sync(spi_nand_flash_device_t *handle) {
   dhara_error_t err;
+  esp_err_t ret = ESP_OK;
+  xSemaphoreTake(handle->mutex, portMAX_DELAY);
+
   if (dhara_map_sync(&handle->dhara_map,&err)) {
-    return ESP_ERR_FLASH_BASE + err;
+    ret = ESP_ERR_FLASH_BASE + err;
   }
-  return ESP_OK;
+
+  xSemaphoreGive(handle->mutex);
+  return ret;
 }
 
 esp_err_t spi_nand_flash_get_capacity(spi_nand_flash_device_t *handle, uint16_t *number_of_sectors) {
@@ -259,6 +291,7 @@ esp_err_t spi_nand_flash_get_sector_size(spi_nand_flash_device_t *handle, uint16
 
 esp_err_t spi_nand_flash_deinit_device(spi_nand_flash_device_t *handle) {
   free(handle->work_buffer);
+  vSemaphoreDelete(handle->mutex);
   free(handle);
   return ESP_OK;
 }
